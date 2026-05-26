@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物流账单数据处理工具</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 26px;
+        }
+
+        /* 步骤指示器 */
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 25px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #e0e0e0;
+            border-radius: 20px;
+            color: #666;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .step.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .step.completed {
+            background: #28a745;
+            color: white;
+        }
+
+        .step-number {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        /* 店铺分组说明 */
+        .shop-mapping {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .shop-tag {
+            background: #f0f0ff;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 13px;
+            color: #333;
+        }
+
+        /* 区块样式 */
+        .section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .section h2 {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 16px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+
+        /* 步骤区块 */
+        .step-block {
+            border: 3px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 15px;
+        }
+
+        .step-block.step1 {
+            border-color: #667eea;
+        }
+
+        .step-block.step2 {
+            border-color: #11998e;
+        }
+
+        .step-block.step3 {
+            border-color: #f093fb;
+        }
+
+        .step-block.step4 {
+            border-color: #4facfe;
+        }
+
+        .step-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .step-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .step-status {
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+        }
+
+        .step-status.pending {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .step-status.completed {
+            background: #28a745;
+            color: white;
+        }
+
+        .step-status.waiting {
+            background: #6c757d;
+            color: white;
+        }
+
+        /* 上传区域 */
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f0ff;
+        }
+
+        .upload-area.dragover {
+            background: #e0e0ff;
+        }
+
+        .upload-area.step2-area {
+            border-color: #11998e;
+        }
+
+        .upload-area.step3-area {
+            border-color: #f093fb;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-list {
+            margin-top: 10px;
+        }
+
+        .file-item {
+            background: white;
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 13px;
+        }
+
+        .file-item .status {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+        }
+
+        .status.pending {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .status.success {
+            background: #28a745;
+            color: white;
+        }
+
+        /* 按钮 */
+        .btn {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-success:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-pink {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: white;
+        }
+
+        .btn-pink:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-pink:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-blue {
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: white;
+        }
+
+        .btn-blue:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-blue:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        /* 进度条 */
+        .progress {
+            display: none;
+            margin: 15px 0;
+        }
+
+        .progress.show {
+            display: block;
+        }
+
+        .progress-bar {
+            height: 16px;
+            background: #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 8px;
+            color: #666;
+            font-size: 13px;
+        }
+
+        /* 日志 */
+        .log {
+            background: #1e1e1e;
+            color: #0f0;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .log-entry {
+            margin-bottom: 3px;
+        }
+
+        .log-entry.error {
+            color: #f55;
+        }
+
+        .log-entry.success {
+            color: #0f0;
+        }
+
+        .log-entry.info {
+            color: #5bf;
+        }
+
+        /* 结果区域 */
+        .results-section {
+            display: none;
+        }
+
+        .results-section.show {
+            display: block;
+        }
+
+        /* 汇总卡片 */
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .summary-card h3 {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+
+        .summary-card .value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .summary-card.green {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+        }
+
+        .summary-card.pink {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+        }
+
+        .summary-card.blue {
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+        }
+
+        /* 分组汇总 */
+        .group-summary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+        }
+
+        .group-summary h3 {
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .group-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .group-item .amount {
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .group-total {
+            border-top: 2px solid rgba(255, 255, 255, 0.5);
+            padding-top: 12px;
+            margin-top: 10px;
+        }
+
+        /* 未匹配列表 */
+        .unmatched-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .unmatched-box h4 {
+            color: #856404;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .copy-btn {
+            background: #ffc107;
+            color: #333;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .copy-btn:hover {
+            background: #e0a800;
+        }
+
+        .unmatched-list {
+            max-height: 120px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+            background: white;
+            padding: 8px;
+            border-radius: 5px;
+        }
+
+        /* 数据表格 */
+        .table-container {
+            max-height: 250px;
+            overflow-y: auto;
+            margin-top: 12px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th,
+        td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        /* 提示文字 */
+        .hint {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        /* 右侧汇总面板 */
+        .results-wrapper {
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+        }
+
+        .results-wrapper .table-container {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .summary-panel {
+            width: 280px;
+            flex-shrink: 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 12px;
+            padding: 15px;
+            color: white;
+            position: sticky;
+            top: 0;
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .summary-panel h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 10px;
+        }
+
+        .summary-section {
+            margin-bottom: 15px;
+        }
+
+        .summary-section h4 {
+            font-size: 13px;
+            opacity: 0.85;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 6px 10px;
+            border-radius: 6px;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 10px;
+            font-size: 13px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+
+        .summary-item .label {
+            opacity: 0.9;
+        }
+
+        .summary-item .amount {
+            font-weight: bold;
+        }
+
+        .summary-total {
+            border-top: 2px solid rgba(255, 255, 255, 0.5);
+            padding-top: 10px;
+            margin-top: 10px;
+            font-size: 15px;
+        }
+
+        .summary-total .amount {
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>📦 物流账单数据处理工具</h1>
+
+        <div class="step-indicator">
+            <div class="step active" id="step1Ind"><span class="step-number">1</span><span>周账单汇总</span></div>
+            <div class="step" id="step2Ind"><span class="step-number">2</span><span>领星匹配</span></div>
+            <div class="step" id="step3Ind"><span class="step-number">3</span><span>运单导出补充</span></div>
+            <div class="step" id="step4Ind"><span class="step-number">4</span><span>最终汇总</span></div>
+        </div>
+
+        <div class="section" id="shopConfigSection">
+            <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;"
+                onclick="toggleShopConfig()">
+                <h2 style="margin:0;">🏪 店铺分组规则 <span id="shopConfigToggle">▼</span></h2>
+            </div>
+            <div id="shopConfigContent" style="margin-top:15px;">
+                <div style="display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;">
+                    <button class="btn btn-secondary" onclick="loadTemplate('default')"
+                        style="padding:8px 15px;font-size:12px;">📋 加载默认模板</button>
+                    <button class="btn btn-secondary" onclick="loadTemplate('clear')"
+                        style="padding:8px 15px;font-size:12px;">🗑 清空</button>
+                </div>
+                <div id="shopMappingList" class="shop-mapping" style="margin-bottom:15px;"></div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                    <input type="text" id="newShopName" placeholder="店铺名"
+                        style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;min-width:120px;">
+                    <select id="newShopGroup"
+                        style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;">
+                        <option value="亚马逊一组">亚马逊一组</option>
+                        <option value="亚马逊二组">亚马逊二组</option>
+                        <option value="阿里组">阿里组</option>
+                        <option value="未知">未知</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="addShopMapping()"
+                        style="padding:8px 15px;font-size:13px;">➕ 添加</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-block step1" id="step1Block">
+            <div class="step-header">
+                <span class="step-title">📋 第一步：周账单合并汇总</span>
+                <span class="step-status pending" id="step1Status">待处理</span>
+            </div>
+            <p class="hint">上传周账单文件，自动提取各子表中的运单号、金额，添加"费用项目"列</p>
+            <div class="upload-area" id="dropZone1">
+                <p style="font-size:14px;color:#667eea;">📤 点击或拖拽上传周账单文件</p>
+                <p style="color:#999;margin-top:5px;font-size:12px;">支持 xlsx, xls 格式</p>
+                <input type="file" class="file-input" id="fileInput1" multiple accept=".xlsx,.xls">
+            </div>
+            <div class="file-list" id="fileList1"></div>
+            <div class="btn-group">
+                <button class="btn btn-primary" id="step1Btn" disabled onclick="executeStep1()">▶ 执行第一步</button>
+                <button class="btn btn-secondary" id="exportStep1Btn" disabled onclick="exportStep1()">💾 导出月账单</button>
+            </div>
+        </div>
+
+        <div class="progress" id="progress">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText"></div>
+        </div>
+
+        <div class="section" id="logSection" style="display:none;">
+            <h2>📋 处理日志</h2>
+            <div class="log" id="log"></div>
+        </div>
+
+        <div class="step-block step2" id="step2Block">
+            <div class="step-header">
+                <span class="step-title">📋 第二步：与领星销售出库单匹配</span>
+                <span class="step-status waiting" id="step2Status">等待第一步</span>
+            </div>
+            <p class="hint">上传领星销售出库单，匹配获取平台单号、店铺、出库仓库等信息</p>
+            <div class="upload-area step2-area" id="dropZone2">
+                <p style="font-size:14px;color:#11998e;">📤 点击或拖拽上传领星销售出库单</p>
+                <p style="color:#999;margin-top:5px;font-size:12px;">支持 xlsx, xls 格式</p>
+                <input type="file" class="file-input" id="fileInput2" accept=".xlsx,.xls">
+            </div>
+            <div class="file-list" id="fileList2"></div>
+            <div class="btn-group">
+                <button class="btn btn-success" id="step2Btn" disabled onclick="executeStep2()">▶ 执行第二步</button>
+            </div>
+        </div>
+
+        <div class="step-block step3" id="step3Block">
+            <div class="step-header">
+                <span class="step-title">📋 第三步：运单导出数据补充</span>
+                <span class="step-status waiting" id="step3Status">等待第二步</span>
+            </div>
+            <p class="hint">上传运单导出表，根据"原单号/新单号"列，替换未匹配运单号，再次匹配</p>
+            <div class="upload-area step3-area" id="dropZone3">
+                <p style="font-size:14px;color:#f5576c;">📤 点击或拖拽上传运单导出文件</p>
+                <p style="color:#999;margin-top:5px;font-size:12px;">支持 xlsx, xls 格式</p>
+                <input type="file" class="file-input" id="fileInput3" accept=".xlsx,.xls">
+            </div>
+            <div class="file-list" id="fileList3"></div>
+            <div class="btn-group">
+                <button class="btn btn-pink" id="step3Btn" disabled onclick="executeStep3()">▶ 执行第三步</button>
+                <button class="btn btn-secondary" id="exportStep3Btn" disabled onclick="exportStep3()">💾
+                    导出更新后月账单</button>
+            </div>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <div class="section" id="step1Results">
+                <h2>📊 第一步结果：月账单汇总</h2>
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <h3>总记录数</h3>
+                        <div class="value" id="totalRecords">0</div>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="monthlyTable">
+                        <thead id="monthlyHead"></thead>
+                        <tbody id="monthlyBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="section" id="step2Results" style="display:none;">
+                <h2>📊 第二步结果：领星匹配</h2>
+                <div class="summary-cards">
+                    <div class="summary-card green">
+                        <h3>匹配成功</h3>
+                        <div class="value" id="matchedCount">0</div>
+                    </div>
+                    <div class="summary-card pink">
+                        <h3>未匹配</h3>
+                        <div class="value" id="unmatchedCount">0</div>
+                    </div>
+                </div>
+                <div class="unmatched-box" id="unmatchedBox">
+                    <h4>⚠️ 未匹配运单号（可一键复制）</h4>
+                    <button class="copy-btn" onclick="copyUnmatched()">📋 复制全部</button>
+                    <div class="unmatched-list" id="unmatchedList"></div>
+                </div>
+                <div class="table-container">
+                    <table id="matchedTable">
+                        <thead id="matchedHead"></thead>
+                        <tbody id="matchedBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="section" id="step3Results" style="display:none;">
+                <h2>📊 第三步结果：运单导出补充</h2>
+                <div class="summary-cards">
+                    <div class="summary-card green">
+                        <h3>补充成功</h3>
+                        <div class="value" id="suppliedCount">0</div>
+                    </div>
+                    <div class="summary-card pink">
+                        <h3>仍未匹配</h3>
+                        <div class="value" id="stillUnmatchedCount">0</div>
+                    </div>
+                </div>
+                <div class="unmatched-box" id="stillUnmatchedBox" style="display:none;">
+                    <h4>⚠️ 仍未匹配运单号</h4>
+                    <button class="copy-btn" onclick="copyStillUnmatched()">📋 复制全部</button>
+                    <div class="unmatched-list" id="stillUnmatchedList"></div>
+                </div>
+                <div class="results-wrapper">
+                    <div class="table-container">
+                        <table id="suppliedTable">
+                            <thead id="suppliedHead"></thead>
+                            <tbody id="suppliedBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="summary-panel" id="summaryPanel">
+                        <h3>💰 金额汇总</h3>
+                        <div class="summary-section" id="groupSummarySection">
+                            <h4>按组汇总</h4>
+                            <div id="groupSummaryByGroup"></div>
+                        </div>
+                        <div class="summary-section" id="shopSummarySection">
+                            <h4>按店铺汇总</h4>
+                            <div id="groupSummaryByShop"></div>
+                        </div>
+                        <div class="summary-total" id="summaryTotal">
+                            <div class="summary-item">
+                                <span class="label">💰 所有组总计</span>
+                                <span class="amount" id="totalAmountValue">¥0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-group" style="margin-top:25px;">
+                <button class="btn btn-blue" id="exportAllBtn" disabled onclick="exportAll()">💾 导出完整物流账单表</button>
+                <button class="btn btn-secondary" onclick="resetAll()">🗑 重新开始</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let step1Files = [];
+        let lingxingFile = null;
+        let waybillFile = null;
+        let monthlyData = [];      // 第一步：月账单数据
+        let matchedData = [];      // 第二步：领星匹配后数据
+        let unmatchedNos = [];      // 第二步：未匹配运单号
+        let suppliedData = [];     // 第三步：运单导出补充数据
+        let stillUnmatchedNos = [];// 第三步：仍未匹配运单号
+        let globalLingxingMap = new Map(); // 优化点：全局缓存领星解析数据，避免第三步重复解析
+
+        // 全局配置对象
+        let CONFIG = {
+            SHOP_TO_GROUP: {
+                'fuumuui': '亚马逊一组', 'goldenmaple': '亚马逊二组',
+                'yasterd': '阿里组', '阿里-甲片': '阿里组'
+            },
+            FEE_ITEMS: {
+                '商户汇总账单': '商户汇总账单',
+                '快件调整': '快件调整',
+                '退件调整': '退件调整',
+                '赔偿': '赔偿',
+                '二次费用': '二次费用',
+                '境外重派': '境外重派'
+            },
+            EXCLUDED_SHEETS: ['商户账单首页', '税费明细']
+        };
+
+        // 兼容旧代码引用
+        let SHOP_TO_GROUP = CONFIG.SHOP_TO_GROUP;
+        let FEE_ITEMS = CONFIG.FEE_ITEMS;
+        let EXCLUDED_SHEETS = CONFIG.EXCLUDED_SHEETS;
+
+        const DEFAULT_SHOP_TEMPLATE = { ...CONFIG.SHOP_TO_GROUP };
+
+        // 初始化：从服务器或本地加载配置
+        async function initShopMapping() {
+            try {
+                const response = await fetch('/api/logistics/config');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    CONFIG = result.data;
+                    SHOP_TO_GROUP = CONFIG.SHOP_TO_GROUP;
+                    FEE_ITEMS = CONFIG.FEE_ITEMS;
+                    EXCLUDED_SHEETS = CONFIG.EXCLUDED_SHEETS;
+                    console.log('配置已从服务器加载');
+                } else {
+                    const saved = localStorage.getItem('logisticsConfig');
+                    if (saved) {
+                        CONFIG = JSON.parse(saved);
+                        SHOP_TO_GROUP = CONFIG.SHOP_TO_GROUP;
+                        FEE_ITEMS = CONFIG.FEE_ITEMS;
+                        EXCLUDED_SHEETS = CONFIG.EXCLUDED_SHEETS;
+                    }
+                }
+            } catch (e) {
+                console.warn('无法从服务器获取配置，使用本地缓存');
+                const saved = localStorage.getItem('logisticsConfig');
+                if (saved) {
+                    CONFIG = JSON.parse(saved);
+                    SHOP_TO_GROUP = CONFIG.SHOP_TO_GROUP;
+                    FEE_ITEMS = CONFIG.FEE_ITEMS;
+                    EXCLUDED_SHEETS = CONFIG.EXCLUDED_SHEETS;
+                }
+            }
+            renderShopMapping();
+        }
+
+        function renderShopMapping() {
+            const list = document.getElementById('shopMappingList');
+            list.innerHTML = '';
+            Object.entries(SHOP_TO_GROUP).forEach(([shop, group]) => {
+                const tag = document.createElement('span');
+                tag.className = 'shop-tag';
+                tag.style.cursor = 'pointer';
+                tag.innerHTML = `${shop} → ${group} <span onclick="removeShopMapping('${shop}')" style="margin-left:5px;color:#f55;font-weight:bold;">×</span>`;
+                list.appendChild(tag);
+            });
+        }
+
+        function toggleShopConfig() {
+            const content = document.getElementById('shopConfigContent');
+            const toggle = document.getElementById('shopConfigToggle');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                toggle.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                toggle.textContent = '▶';
+            }
+        }
+
+        function addShopMapping() {
+            const nameInput = document.getElementById('newShopName');
+            const groupSelect = document.getElementById('newShopGroup');
+            const shopName = nameInput.value.trim();
+            const group = groupSelect.value;
+
+            if (!shopName) {
+                alert('请输入店铺名');
+                return;
+            }
+
+            SHOP_TO_GROUP[shopName.toLowerCase()] = group;
+            saveShopMapping();
+            renderShopMapping();
+            nameInput.value = '';
+        }
+
+        function removeShopMapping(shop) {
+            delete SHOP_TO_GROUP[shop];
+            saveShopMapping();
+            renderShopMapping();
+        }
+
+        function saveShopMapping() {
+            localStorage.setItem('logisticsConfig', JSON.stringify(CONFIG));
+            fetch('/api/logistics/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(CONFIG)
+            }).then(r => r.json()).then(res => {
+                if (res.success) console.log('配置已同步到服务器');
+            }).catch(e => console.error('同步失败:', e));
+        }
+
+        function loadTemplate(type) {
+            if (type === 'default') {
+                CONFIG.SHOP_TO_GROUP = { ...DEFAULT_SHOP_TEMPLATE };
+                SHOP_TO_GROUP = CONFIG.SHOP_TO_GROUP;
+            } else if (type === 'clear') {
+                Object.keys(SHOP_TO_GROUP).forEach(k => delete SHOP_TO_GROUP[k]);
+            }
+            saveShopMapping();
+            renderShopMapping();
+        }
+
+        // ========== 上传处理 ==========
+        ['1', '2', '3'].forEach(n => {
+            const dz = document.getElementById('dropZone' + n);
+            const fi = document.getElementById('fileInput' + n);
+            dz.addEventListener('click', () => fi.click());
+            dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+            dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+            dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); handleFiles(n, e.dataTransfer.files); });
+            fi.addEventListener('change', e => handleFiles(n, e.target.files));
+        });
+
+        function handleFiles(step, files) {
+            const fileList = document.getElementById('fileList' + step);
+            Array.from(files).forEach(file => {
+                if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) return;
+                if (step === '1') {
+                    if (!step1Files.find(f => f.name === file.name)) {
+                        step1Files.push(file);
+                        addFileItem('fileList1', 'file1-' + file.name, file.name);
+                    }
+                } else if (step === '2') {
+                    lingxingFile = file;
+                    fileList.innerHTML = '';
+                    addFileItem('fileList2', 'file2', file.name);
+                } else if (step === '3') {
+                    waybillFile = file;
+                    fileList.innerHTML = '';
+                    addFileItem('fileList3', 'file3', file.name);
+                }
+            });
+            updateBtnState();
+        }
+
+        function addFileItem(listId, id, name) {
+            const div = document.createElement('div');
+            div.className = 'file-item';
+            div.id = id;
+            div.innerHTML = `<span>${name}</span><span class="status pending">待处理</span>`;
+            document.getElementById(listId).appendChild(div);
+        }
+
+        function updateBtnState() {
+            document.getElementById('step1Btn').disabled = step1Files.length === 0;
+            document.getElementById('step2Btn').disabled = !lingxingFile || monthlyData.length === 0;
+            document.getElementById('step3Btn').disabled = !waybillFile || unmatchedNos.length === 0;
+            document.getElementById('exportAllBtn').disabled = matchedData.length === 0;
+        }
+
+        // ========== 日志 ==========
+        function addLog(msg, type = 'info') {
+            const logEl = document.getElementById('log');
+            const logSectionEl = document.getElementById('logSection');
+            if (logSectionEl) logSectionEl.style.display = 'block';
+            if (logEl) {
+                const entry = document.createElement('div');
+                entry.className = 'log-entry ' + type;
+                entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+                logEl.appendChild(entry);
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+        }
+
+        function updateProgress(pct, text) {
+            const progressEl = document.getElementById('progress');
+            const progressFillEl = document.getElementById('progressFill');
+            const progressTextEl = document.getElementById('progressText');
+            if (progressEl) progressEl.classList.add('show');
+            if (progressFillEl) progressFillEl.style.width = pct + '%';
+            if (progressTextEl) progressTextEl.textContent = text;
+        }
+
+        function readExcel(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    try {
+                        resolve(XLSX.read(new Uint8Array(e.target.result), { type: 'array' }));
+                    } catch (err) { reject(err); }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function getGroup(shop) {
+            if (!shop) return '未知';
+            const s = String(shop).toLowerCase();
+            for (const [k, g] of Object.entries(SHOP_TO_GROUP)) {
+                if (s.includes(k.toLowerCase())) return g;
+            }
+            return '未知';
+        }
+
+        // ========== 第一步：周账单汇总 ==========
+        async function executeStep1() {
+            document.getElementById('progress').classList.add('show');
+            document.getElementById('log').innerHTML = '';
+            document.getElementById('resultsSection').classList.remove('show');
+
+            addLog('========== 第一步：周账单汇总 ==========', 'info');
+            updateProgress(10, '读取周账单文件...');
+
+            try {
+                monthlyData = [];
+
+                for (let i = 0; i < step1Files.length; i++) {
+                    const file = step1Files[i];
+                    addLog(`处理: ${file.name}`, 'info');
+                    updateProgress(10 + (i / step1Files.length) * 40, `处理周账单 ${i + 1}/${step1Files.length}...`);
+
+                    const wb = await readExcel(file);
+
+                    for (const sheetName of wb.SheetNames) {
+                        if (EXCLUDED_SHEETS.includes(sheetName)) continue;
+
+                        const sheet = wb.Sheets[sheetName];
+                        if (!sheet) continue;
+
+                        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                        if (jsonData.length < 2) continue;
+
+                        const headers = jsonData[0];
+                        const trackIdx = headers.findIndex(h => h === '快递单号' || h === '运单号' || h === '转单号');
+                        const amtIdx = headers.findIndex(h => h === '合计金额' || h === '账单金额(元)' || h === '赔偿金额(元)' || h === '重派金额' || h === '附加费金额' || h === '金额');
+                        const detailIdx = headers.findIndex(h => h === '附加费项' || h === '赔偿类型' || h === '备注' || h === '费用名称' || h === '调整项');
+
+                        if (amtIdx === -1) continue;
+
+                        const sheetFeeItem = FEE_ITEMS[sheetName] || sheetName;
+
+                        for (let r = 1; r < jsonData.length; r++) {
+                            const row = jsonData[r];
+                            let trackNo = trackIdx !== -1 ? row[trackIdx] : '';
+                            const amount = row[amtIdx];
+                            const detail = detailIdx !== -1 ? row[detailIdx] : '';
+
+                            if (amount && !isNaN(parseFloat(amount))) {
+                                const feeItem = detail ? `${sheetFeeItem}-${detail}` : sheetFeeItem;
+                                monthlyData.push({
+                                    运单号: trackNo ? String(trackNo).trim() : '无单号',
+                                    合计金额: parseFloat(amount),
+                                    费用项目: feeItem,
+                                    来源表: sheetName
+                                });
+                            }
+                        }
+                    }
+
+                    setFileStatus('file1-' + file.name, 'success');
+                }
+
+                addLog(`汇总完成，共 ${monthlyData.length} 条记录`, 'success');
+                addLog(`费用项目分布：`, 'info');
+                const feeCount = {};
+                monthlyData.forEach(d => { feeCount[d.费用项目] = (feeCount[d.费用项目] || 0) + 1; });
+                Object.entries(feeCount).forEach(([k, v]) => addLog(`  ${k}: ${v} 条`, 'info'));
+
+                updateProgress(100, '第一步完成！');
+
+                setStepComplete(1);
+                document.getElementById('exportStep1Btn').disabled = false;
+                showStep1Results();
+                updateBtnState();
+
+            } catch (err) {
+                addLog('处理出错: ' + err.message, 'error');
+            }
+        }
+
+        function showStep1Results() {
+            document.getElementById('resultsSection').classList.add('show');
+            document.getElementById('totalRecords').textContent = monthlyData.length;
+
+            const headers = ['运单号', '合计金额', '费用项目', '来源表'];
+            document.getElementById('monthlyHead').innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+
+            let html = '';
+            monthlyData.slice(0, 300).forEach(row => {
+                html += `<tr><td>${row.运单号}</td><td>¥${row.合计金额.toFixed(2)}</td><td>${row.费用项目}</td><td>${row.来源表}</td></tr>`;
+            });
+            if (monthlyData.length > 300) html += `<tr><td colspan="4" style="text-align:center;color:#666;">显示前300条，共 ${monthlyData.length} 条</td></tr>`;
+            document.getElementById('monthlyBody').innerHTML = html;
+        }
+
+        function exportStep1() {
+            if (monthlyData.length === 0) return;
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(monthlyData);
+            XLSX.utils.book_append_sheet(wb, ws, '月账单汇总');
+            XLSX.writeFile(wb, '月账单汇总.xlsx');
+        }
+
+        // ========== 第二步：领星匹配 ==========
+        async function executeStep2() {
+            if (!lingxingFile || monthlyData.length === 0) return;
+
+            addLog('========== 第二步：领星匹配 ==========', 'info');
+            updateProgress(10, '读取领星数据...');
+
+            try {
+                const wb = await readExcel(lingxingFile);
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                const lingxingData = XLSX.utils.sheet_to_json(sheet);
+
+                globalLingxingMap.clear(); // 优化点：写入全局变量
+                lingxingData.forEach(row => {
+                    const no = String(row['运单号'] || '').trim();
+                    if (no) {
+                        globalLingxingMap.set(no, {
+                            平台单号: row['平台单号'] || '',
+                            店铺: row['店铺'] || '',
+                            出库仓库: row['出库仓库'] || ''
+                        });
+                    }
+                });
+
+                addLog(`领星数据: ${globalLingxingMap.size} 条`, 'success');
+                updateProgress(50, '匹配中...');
+
+                matchedData = [];
+                unmatchedNos = [];
+
+                monthlyData.forEach(item => {
+                    const info = globalLingxingMap.get(item.运单号);
+                    if (info) {
+                        matchedData.push({
+                            ...item,
+                            平台单号: info.平台单号,
+                            店铺: info.店铺,
+                            出库仓库: info.出库仓库,
+                            组: getGroup(info.店铺)
+                        });
+                    } else {
+                        unmatchedNos.push(item.运单号);
+                    }
+                });
+
+                addLog(`匹配成功: ${matchedData.length} 条`, 'success');
+                addLog(`未匹配: ${unmatchedNos.length} 条`, unmatchedNos.length > 0 ? 'error' : 'success');
+
+                setFileStatus('file2', 'success');
+                updateProgress(100, '第二步完成！');
+
+                setStepComplete(2);
+                showStep2Results();
+                updateBtnState();
+
+            } catch (err) {
+                addLog('处理出错: ' + err.message, 'error');
+            }
+        }
+
+        function showStep2Results() {
+            document.getElementById('step2Results').style.display = 'block';
+            document.getElementById('matchedCount').textContent = matchedData.length;
+            document.getElementById('unmatchedCount').textContent = unmatchedNos.length;
+
+            // 未匹配列表
+            const ub = document.getElementById('unmatchedBox');
+            if (unmatchedNos.length > 0) {
+                ub.style.display = 'block';
+                document.getElementById('unmatchedList').innerHTML = unmatchedNos.map(u => `<div>${u}</div>`).join('');
+            } else {
+                ub.style.display = 'none';
+            }
+
+            // 表格
+            const headers = ['运单号', '合计金额', '费用项目', '平台单号', '店铺', '出库仓库', '组'];
+            document.getElementById('matchedHead').innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+
+            let html = '';
+            matchedData.slice(0, 200).forEach(row => {
+                html += `<tr><td>${row.运单号}</td><td>¥${row.合计金额.toFixed(2)}</td><td>${row.费用项目}</td><td>${row.平台单号}</td><td>${row.店铺}</td><td>${row.出库仓库}</td><td>${row.组}</td></tr>`;
+            });
+            if (matchedData.length > 200) html += `<tr><td colspan="7" style="text-align:center;color:#666;">显示前200条，共 ${matchedData.length} 条</td></tr>`;
+            document.getElementById('matchedBody').innerHTML = html;
+        }
+
+        function copyUnmatched() {
+            if (unmatchedNos.length === 0) return;
+            navigator.clipboard.writeText(unmatchedNos.join('\n')).then(() => alert('已复制 ' + unmatchedNos.length + ' 条未匹配运单号！'));
+        }
+
+        // ========== 第三步：运单导出补充 ==========
+        async function executeStep3() {
+            if (!waybillFile || unmatchedNos.length === 0) return;
+
+            addLog('========== 第三步：运单导出补充 ==========', 'info');
+            updateProgress(10, '读取运单导出...');
+
+            try {
+                const wb = await readExcel(waybillFile);
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                const waybillData = XLSX.utils.sheet_to_json(sheet);
+
+                addLog(`运单导出原始数据条数: ${waybillData.length}`, 'info');
+
+                // 运单导出表结构：
+                // - `运单号`列 = 新单号 (VR开头)
+                // - `原单号/新单号`列 = 原单号/新单号 (UL/VR)
+                // 建立映射：新单号 -> 原单号
+                const newToOldMap = new Map(); // 新单号 -> 原单号
+
+                waybillData.forEach(row => {
+                    let combined = row['原单号/新单号'] || row[' 原单号/新单号'] || row['原单号/新单号 '];
+                    combined = combined ? String(combined).trim() : '';
+
+                    let trackingNo = row['运单号'] || row[' 运单号'] || row['运单号 '];
+                    trackingNo = trackingNo ? String(trackingNo).trim() : '';
+
+                    if (combined) {
+                        const parts = combined.split('/');
+                        if (parts.length >= 2) {
+                            const oldNo = parts[0].trim();  // 原单号 (UL开头)
+                            const newNo = parts[1].trim();  // 新单号 (VR开头)
+                            if (oldNo && newNo) {
+                                // 建立新单号到原单号的映射
+                                newToOldMap.set(newNo, oldNo);
+                                // 同时用运单号列作为新单号补充映射
+                                if (trackingNo && trackingNo !== newNo) {
+                                    newToOldMap.set(trackingNo, oldNo);
+                                }
+                            }
+                        }
+                    }
+                });
+
+                addLog(`运单导出解析: ${newToOldMap.size} 个新单号->原单号映射`, 'success');
+
+                setFileStatus('file3', 'success');
+                updateProgress(50, '用原单号重新匹配...');
+
+                // 复用领星数据
+                addLog(`复用内存中的领星数据: ${globalLingxingMap.size} 条`, 'success');
+
+                suppliedData = [];
+                stillUnmatchedNos = [];
+
+                let matchedByOldNo = 0;
+
+                unmatchedNos.forEach(newNo => {
+                    // 用新单号查找对应的原单号
+                    const oldNo = newToOldMap.get(newNo);
+
+                    if (oldNo) {
+                        // 用原单号去领星表匹配
+                        const info = globalLingxingMap.get(oldNo);
+                        if (info) {
+                            matchedByOldNo++;
+                            // 从月账单获取金额和费用项目
+                            const monthlyItem = monthlyData.find(m => m.运单号 === newNo);
+
+                            suppliedData.push({
+                                运单号: oldNo,  // 最终显示原单号
+                                新运单号: newNo,
+                                合计金额: monthlyItem ? monthlyItem.合计金额 : 0,
+                                费用项目: monthlyItem ? monthlyItem.费用项目 : '',
+                                平台单号: info.平台单号,
+                                店铺: info.店铺,
+                                出库仓库: info.出库仓库,
+                                组: getGroup(info.店铺)
+                            });
+                        } else {
+                            stillUnmatchedNos.push(newNo);
+                        }
+                    } else {
+                        stillUnmatchedNos.push(newNo);
+                    }
+                });
+
+                addLog(`用原单号匹配成功: ${matchedByOldNo} 条`, 'success');
+                addLog(`仍未匹配: ${stillUnmatchedNos.length} 条`, stillUnmatchedNos.length > 0 ? 'error' : 'success');
+
+                updateProgress(100, '第三步完成！');
+
+                setStepComplete(3);
+
+                // 显示结果
+                const step3Results = document.getElementById('step3Results');
+                if (step3Results) step3Results.style.display = 'block';
+
+                document.getElementById('suppliedCount').textContent = suppliedData.length;
+                document.getElementById('stillUnmatchedCount').textContent = stillUnmatchedNos.length;
+
+                const stillUnmatchedBoxEl = document.getElementById('stillUnmatchedBox');
+                const stillUnmatchedListEl = document.getElementById('stillUnmatchedList');
+                if (stillUnmatchedNos.length > 0) {
+                    stillUnmatchedBoxEl.style.display = 'block';
+                    stillUnmatchedListEl.innerHTML = stillUnmatchedNos.map(u => `<div>${u}</div>`).join('');
+                } else {
+                    if (stillUnmatchedBoxEl) stillUnmatchedBoxEl.style.display = 'none';
+                }
+
+                const headers = ['运单号(原单号)', '新运单号', '合计金额', '费用项目', '平台单号', '店铺', '出库仓库', '组'];
+                document.getElementById('suppliedHead').innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+
+                let html = '';
+                suppliedData.slice(0, 200).forEach(row => {
+                    html += `<tr><td>${row.运单号}</td><td>${row.新运单号}</td><td>¥${row.合计金额.toFixed(2)}</td><td>${row.费用项目}</td><td>${row.平台单号}</td><td>${row.店铺}</td><td>${row.出库仓库}</td><td>${row.组}</td></tr>`;
+                });
+                if (suppliedData.length > 200) html += `<tr><td colspan="8" style="text-align:center;color:#666;">显示前200条，共 ${suppliedData.length} 条</td></tr>`;
+                document.getElementById('suppliedBody').innerHTML = html;
+
+                updateGroupSummary();
+                updateBtnState();
+
+                document.getElementById('exportStep3Btn').disabled = false;
+
+            } catch (err) {
+                addLog('处理出错: ' + err.message, 'error');
+                console.error(err);
+            }
+        }
+
+        function copyStillUnmatched() {
+            if (stillUnmatchedNos.length === 0) return;
+            navigator.clipboard.writeText(stillUnmatchedNos.join('\n')).then(() => alert('已复制 ' + stillUnmatchedNos.length + ' 条仍未匹配运单号！'));
+        }
+
+        // ========== 分组汇总 ==========
+        function updateGroupSummary() {
+            const groupMap = {};
+            const shopMap = {};
+
+            // 合并所有数据
+            const allData = [...matchedData, ...suppliedData];
+
+            // 按组汇总
+            allData.forEach(row => {
+                const g = row.组 || '未知';
+                groupMap[g] = (groupMap[g] || 0) + (row.合计金额 || 0);
+            });
+
+            // 按店铺汇总
+            allData.forEach(row => {
+                const shop = row.店铺 || '未知';
+                shopMap[shop] = (shopMap[shop] || 0) + (row.合计金额 || 0);
+            });
+
+            // 计算总计
+            let total = 0;
+            Object.values(groupMap).forEach(amt => total += amt);
+
+            // 渲染按组汇总
+            const groupDiv = document.getElementById('groupSummaryByGroup');
+            if (groupDiv) {
+                groupDiv.innerHTML = '';
+                Object.entries(groupMap).sort((a, b) => b[1] - a[1]).forEach(([g, amt]) => {
+                    const item = document.createElement('div');
+                    item.className = 'summary-item';
+                    item.innerHTML = `<span class="label">${g}</span><span class="amount">¥${amt.toFixed(2)}</span>`;
+                    groupDiv.appendChild(item);
+                });
+            }
+
+            // 渲染按店铺汇总
+            const shopDiv = document.getElementById('groupSummaryByShop');
+            if (shopDiv) {
+                shopDiv.innerHTML = '';
+                Object.entries(shopMap).sort((a, b) => b[1] - a[1]).forEach(([shop, amt]) => {
+                    const item = document.createElement('div');
+                    item.className = 'summary-item';
+                    item.innerHTML = `<span class="label">${shop}</span><span class="amount">¥${amt.toFixed(2)}</span>`;
+                    shopDiv.appendChild(item);
+                });
+            }
+
+            // 更新总计
+            const totalEl = document.getElementById('totalAmountValue');
+            if (totalEl) {
+                totalEl.textContent = '¥' + total.toFixed(2);
+            }
+        }
+
+        // ========== 导出全部 ==========
+        function exportAll() {
+            // 计算分组汇总和店铺汇总
+            const groupMap = {};
+            const shopMap = {};
+
+            // 合并所有数据
+            const allData = [...matchedData, ...suppliedData];
+
+            // 按组汇总
+            allData.forEach(row => {
+                const g = row.组 || '未知';
+                groupMap[g] = (groupMap[g] || 0) + (row.合计金额 || 0);
+            });
+
+            // 按店铺汇总
+            allData.forEach(row => {
+                const shop = row.店铺 || '未知';
+                shopMap[shop] = (shopMap[shop] || 0) + (row.合计金额 || 0);
+            });
+
+            // 计算总计
+            let totalAmount = 0;
+            Object.values(groupMap).forEach(amt => totalAmount += amt);
+
+            const wb = XLSX.utils.book_new();
+
+            // ========== Sheet1: 主数据 + 汇总信息(右侧) ==========
+
+            const sortedGroups = Object.entries(groupMap).sort((a, b) => b[1] - a[1]);
+            const sortedShops = Object.entries(shopMap).sort((a, b) => b[1] - a[1]);
+
+            // 计算汇总区域需要的行数
+            const summaryRowCount = 1 + sortedGroups.length + 1 + 1 + 1 + sortedShops.length + 1 + 1 + 1;
+
+            // 构建表头（包含主数据列和汇总区域标题）
+            const headers = [
+                '运单号', '合计金额', '费用项目', '平台单号', '店铺', '出库仓库', '组', '', ''
+            ];
+
+            // 构建完整的二维数组数据
+            const aoaData = [];
+
+            // 第1行：表头
+            aoaData.push(headers);
+
+            // 第2行起：主数据
+            matchedData.forEach(row => {
+                aoaData.push([
+                    row.运单号,
+                    row.合计金额,
+                    row.费用项目,
+                    row.平台单号,
+                    row.店铺,
+                    row.出库仓库,
+                    row.组,
+                    '',  // H列空
+                    ''   // I列空
+                ]);
+            });
+
+            suppliedData.forEach(row => {
+                aoaData.push([
+                    row.运单号,
+                    row.合计金额,
+                    row.费用项目,
+                    row.平台单号,
+                    row.店铺,
+                    row.出库仓库,
+                    row.组,
+                    '',  // H列空
+                    ''   // I列空
+                ]);
+            });
+
+            // 主数据行数
+            const dataRowCount = aoaData.length;
+
+            // 在第1行右侧写入汇总信息（使用cell reference直接设置）
+            const ws = XLSX.utils.aoa_to_sheet(aoaData);
+
+            // 在第1行写入汇总标题
+            ws['H1'] = { t: 's', v: '【按组汇总】' };
+
+            let summaryRowIdx = 2;
+            // 写入各组汇总
+            sortedGroups.forEach(([组, 金额合计]) => {
+                ws['H' + summaryRowIdx] = { t: 's', v: 组 };
+                ws['I' + summaryRowIdx] = { t: 'n', v: 金额合计 };
+                summaryRowIdx++;
+            });
+
+            // 写入组总计
+            ws['H' + summaryRowIdx] = { t: 's', v: '组总计' };
+            ws['I' + summaryRowIdx] = { t: 'n', v: totalAmount };
+            summaryRowIdx++;
+
+            // 空行
+            summaryRowIdx++;
+
+            // 写入按店铺汇总标题
+            ws['H' + summaryRowIdx] = { t: 's', v: '【按店铺汇总】' };
+            summaryRowIdx++;
+
+            // 写入各店铺汇总
+            sortedShops.forEach(([shop, 金额合计]) => {
+                ws['H' + summaryRowIdx] = { t: 's', v: shop };
+                ws['I' + summaryRowIdx] = { t: 'n', v: 金额合计 };
+                summaryRowIdx++;
+            });
+
+            // 写入店铺总计
+            ws['H' + summaryRowIdx] = { t: 's', v: '店铺总计' };
+            ws['I' + summaryRowIdx] = { t: 'n', v: totalAmount };
+            summaryRowIdx++;
+
+            // 空行
+            summaryRowIdx++;
+
+            // 写入所有组总计
+            ws['H' + summaryRowIdx] = { t: 's', v: '【所有组总计】' };
+            ws['I' + summaryRowIdx] = { t: 'n', v: totalAmount };
+
+            // 设置列宽
+            ws['!cols'] = [
+                { wch: 15 }, // A: 运单号
+                { wch: 12 }, // B: 合计金额
+                { wch: 12 }, // C: 费用项目
+                { wch: 18 }, // D: 平台单号
+                { wch: 15 }, // E: 店铺
+                { wch: 15 }, // F: 出库仓库
+                { wch: 10 }, // G: 组
+                { wch: 15 }, // H: 汇总名称
+                { wch: 15 }  // I: 汇总金额
+            ];
+
+            // 设置冻结前7列，让汇总区域始终可见
+            ws['!freeze'] = { xSplit: 7, ySplit: 1 };
+
+            XLSX.utils.book_append_sheet(wb, ws, '物流账单明细');
+
+            XLSX.writeFile(wb, '物流账单处理结果.xlsx');
+        }
+
+        function exportStep3() {
+            if (suppliedData.length === 0) return;
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(suppliedData);
+            XLSX.utils.book_append_sheet(wb, ws, '运单导出补充');
+            XLSX.writeFile(wb, '运单导出补充数据.xlsx');
+        }
+
+        // ========== 辅助函数 ==========
+        function setStepComplete(step) {
+            const currentStatus = document.getElementById('step' + step + 'Status');
+            const currentInd = document.getElementById('step' + step + 'Ind');
+
+            if (currentStatus) {
+                currentStatus.textContent = '已完成';
+                currentStatus.className = 'step-status completed';
+            }
+            if (currentInd) {
+                currentInd.classList.remove('active');
+                currentInd.classList.add('completed');
+            }
+
+            // 优化点：增加空值保护，如果下个状态不存在则跳过，防止报错中断
+            const nextStep = step + 1;
+            const nextInd = document.getElementById('step' + nextStep + 'Ind');
+            const nextStatus = document.getElementById('step' + nextStep + 'Status');
+
+            if (nextInd) nextInd.classList.add('active');
+            if (nextStatus) {
+                nextStatus.textContent = '待处理';
+                nextStatus.className = 'step-status pending';
+            }
+        }
+
+        function setFileStatus(id, status) {
+            const el = document.getElementById(id);
+            if (el) el.querySelector('.status').className = 'status ' + status;
+        }
+
+        function resetAll() {
+            step1Files = [];
+            lingxingFile = null;
+            waybillFile = null;
+            monthlyData = [];
+            matchedData = [];
+            unmatchedNos = [];
+            suppliedData = [];
+            stillUnmatchedNos = [];
+            globalLingxingMap.clear();
+
+            ['1', '2', '3'].forEach(n => {
+                const list = document.getElementById('fileList' + n);
+                if (list) list.innerHTML = '';
+            });
+
+            const resultsSection = document.getElementById('resultsSection');
+            if (resultsSection) resultsSection.classList.remove('show');
+
+            ['step1Results', 'step2Results', 'step3Results', 'logSection'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+
+            const progress = document.getElementById('progress');
+            if (progress) progress.classList.remove('show');
+
+            // 优化点：修复 resetAll 中可能出现的 null 操作
+            ['1', '2', '3', '4'].forEach(n => {
+                const statusEl = document.getElementById('step' + n + 'Status');
+                const indEl = document.getElementById('step' + n + 'Ind');
+
+                if (statusEl) {
+                    statusEl.textContent = n === '1' ? '待处理' : '等待' + (n - 1) + '完成';
+                    statusEl.className = 'step-status ' + (n === '1' ? 'pending' : 'waiting');
+                }
+                if (indEl) {
+                    indEl.className = 'step' + (n === '1' ? ' active' : '');
+                }
+            });
+
+            const exportStep1Btn = document.getElementById('exportStep1Btn');
+            const exportStep3Btn = document.getElementById('exportStep3Btn');
+            if (exportStep1Btn) exportStep1Btn.disabled = true;
+            if (exportStep3Btn) exportStep3Btn.disabled = true;
+
+            updateBtnState();
+        }
+
+        // ========== 页面初始化 ==========
+        window.onload = function () {
+            initShopMapping();
+        };
+    </script>
+</body>
+
+</html>

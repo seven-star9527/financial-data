@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>财务数据处理工具 - 收款汇总表</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .section h2 {
+            color: #34495e;
+            margin-bottom: 20px;
+            font-size: 18px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .file-upload-area {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .file-box {
+            border: 2px dashed #bdc3c7;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .file-box:hover {
+            border-color: #3498db;
+            background: #f8f9fa;
+        }
+
+        .file-box.loaded {
+            border-color: #27ae60;
+            background: #e8f8f5;
+        }
+
+        .file-box input {
+            display: none;
+        }
+
+        .file-box .icon {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .file-box .filename {
+            font-size: 14px;
+            color: #7f8c8d;
+            word-break: break-all;
+        }
+
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 10px 5px;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+        }
+
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .btn-success {
+            background: #27ae60;
+        }
+
+        .btn-success:hover {
+            background: #219a52;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+        }
+
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+
+        .btn-area {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .log-area {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .log-area .error {
+            color: #e74c3c;
+        }
+
+        .log-area .warning {
+            color: #f39c12;
+        }
+
+        .log-area .success {
+            color: #27ae60;
+        }
+
+        .log-area .info {
+            color: #3498db;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 13px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 150px;
+        }
+
+        th {
+            background: #3498db;
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        tr:hover {
+            background: #e8f4f8;
+        }
+
+        .table-container {
+            max-height: 400px;
+            overflow: auto;
+            margin-top: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: #ecf0f1;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            background: #3498db;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>💰 财务数据处理工具 - 收款汇总表</h1>
+
+        <div class="section">
+            <h2>📁 第一步：上传数据文件</h2>
+            <div class="file-upload-area">
+                <div class="file-box" id="summaryFileBox" ondragover="handleDragOver(event)"
+                    ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'summary')"
+                    onclick="document.getElementById('summaryFile').click()">
+                    <div class="icon">📊</div>
+                    <div>收款汇总表</div>
+                    <div class="filename" id="summaryFilename">点击选择文件或拖入文件</div>
+                    <input type="file" id="summaryFile" accept=".xlsx,.xls" onchange="handleFile('summary')">
+                </div>
+                <div class="file-box" id="wanlihuFileBox" ondragover="handleDragOver(event)"
+                    ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'wanlihu')"
+                    onclick="document.getElementById('wanlihuFile').click()">
+                    <div class="icon">📁</div>
+                    <div>万里汇订单（文件夹或CSV）</div>
+                    <div class="filename" id="wanlihuFilename">点击选择文件夹</div>
+                    <input type="file" id="wanlihuFile" multiple webkitdirectory onchange="handleFile('wanlihu')">
+                </div>
+                <div class="file-box" id="paypalFileBox" ondragover="handleDragOver(event)"
+                    ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'paypal')"
+                    onclick="document.getElementById('paypalFile').click()">
+                    <div class="icon">💳</div>
+                    <div>Paypal流水表</div>
+                    <div class="filename" id="paypalFilename">点击选择文件或拖入文件</div>
+                    <input type="file" id="paypalFile" multiple webkitdirectory accept=".xlsx,.xls,.csv"
+                        onchange="handleFile('paypal')">
+                </div>
+                <div class="file-box" id="shopifyFileBox" ondragover="handleDragOver(event)"
+                    ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'shopify')"
+                    onclick="document.getElementById('shopifyFile').click()">
+                    <div class="icon">🛒</div>
+                    <div>Shopify订单表</div>
+                    <div class="filename" id="shopifyFilename">点击选择文件或拖入文件</div>
+                    <input type="file" id="shopifyFile" multiple webkitdirectory accept=".xlsx,.xls,.csv"
+                        onchange="handleFile('shopify')">
+                </div>
+                <div class="file-box" id="exchangeFileBox" ondragover="handleDragOver(event)"
+                    ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'exchange')"
+                    onclick="document.getElementById('exchangeFile').click()">
+                    <div class="icon">💹</div>
+                    <div>汇率表</div>
+                    <div class="filename" id="exchangeFilename">点击选择文件或拖入文件</div>
+                    <input type="file" id="exchangeFile" multiple webkitdirectory accept=".xlsx,.xls,.csv"
+                        onchange="handleFile('exchange')">
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>⚙️ 第二步：处理数据</h2>
+            <div class="btn-area">
+                <button class="btn" onclick="processWanlihu()" id="btnWanlihu" disabled>处理万里汇数据</button>
+                <button class="btn" onclick="processPaypal()" id="btnPaypal" disabled>处理PayPal数据</button>
+                <button class="btn btn-success" onclick="exportExcel()" id="btnExport" disabled>导出汇总表</button>
+                <button class="btn btn-warning" onclick="clearAll()">清空重置</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📋 处理日志</h2>
+            <div class="log-area" id="logArea">请上传数据文件后开始处理...</div>
+        </div>
+
+        <div class="section">
+            <h2>👀 数据预览</h2>
+            <div class="tab-buttons">
+                <button class="tab-btn active" onclick="showPreview('summary')">收款汇总表</button>
+                <button class="tab-btn" onclick="showPreview('wanlihu')">万里汇数据</button>
+                <button class="tab-btn" onclick="showPreview('paypal')">PayPal数据</button>
+                <button class="tab-btn" onclick="showPreview('shopify')">Shopify数据</button>
+                <button class="tab-btn" onclick="showPreview('exchange')">汇率表</button>
+            </div>
+            <div class="table-container" id="previewContainer">
+                <div style="padding: 20px; text-align: center; color: #999;">暂无数据</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dataStore = {
+            summary: null,
+            summaryWorkbook: null,
+            wanlihu: [],
+            paypal: [],
+            shopify: [],
+            exchangeRates: {},
+            processedData: []
+        };
+
+        function handleFile(type) {
+            const input = document.getElementById(type + 'File');
+            const files = input.files;
+
+            if (!files || files.length === 0) return;
+
+            const fileNames = Array.from(files).map(f => f.name).join(', ');
+            document.getElementById(type + 'Filename').textContent = fileNames.length > 50 ? fileNames.substring(0, 50) + '...' : fileNames;
+            document.getElementById(type + 'FileBox').classList.add('loaded');
+
+            if (type === 'wanlihu') {
+                loadWanlihuFiles(files);
+            } else if (type === 'paypal' || type === 'shopify' || type === 'exchange') {
+                loadMultipleFiles(type, files);
+            } else {
+                loadExcelFile(type, files[0]);
+            }
+        }
+
+        function loadWanlihuFiles(files) {
+            let loadedCount = 0;
+            let allData = [];
+
+            const csvFiles = Array.from(files).filter(f => f.name.endsWith('.csv'));
+            const excelFiles = Array.from(files).filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls'));
+
+            log(`📂 检测到文件: ${csvFiles.length} 个CSV, ${excelFiles.length} 个Excel`, 'info');
+
+            const totalFiles = csvFiles.length + excelFiles.length;
+
+            if (totalFiles === 0) {
+                log('⚠️ 没有找到CSV或Excel文件', 'warning');
+                return;
+            }
+
+            function checkComplete() {
+                if (loadedCount === totalFiles && allData.length > 0) {
+                    dataStore.wanlihu = allData;
+                    log(`✅ 万里汇数据加载成功，共 ${allData.length} 条记录`, 'success');
+                    updateButtonState();
+                    showPreview('wanlihu');
+                } else if (loadedCount === totalFiles && allData.length === 0) {
+                    log('⚠️ 万里汇文件夹为空或没有可读取的数据', 'warning');
+                }
+            }
+
+            // 处理CSV文件
+            csvFiles.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        const text = e.target.result;
+                        if (!text || text.trim() === '') {
+                            loadedCount++;
+                            checkComplete();
+                            return;
+                        }
+
+                        const lines = text.split('\n').filter(line => line.trim());
+                        if (lines.length < 2) {
+                            loadedCount++;
+                            checkComplete();
+                            return;
+                        }
+
+                        const headers = parseCSVLine(lines[0]);
+                        const rows = [];
+                        for (let i = 1; i < lines.length; i++) {
+                            const values = parseCSVLine(lines[i]);
+                            let obj = {};
+                            headers.forEach((header, index) => {
+                                obj[header] = values[index] || '';
+                            });
+                            rows.push(obj);
+                        }
+
+                        allData = allData.concat(rows);
+                    } catch (error) {
+                        log(`❌ 读取万里汇文件 ${file.name} 失败: ${error.message}`, 'error');
+                    }
+                    loadedCount++;
+                    checkComplete();
+                };
+                reader.onerror = function () {
+                    log(`❌ 读取万里汇文件 ${file.name} 失败: 文件读取错误`, 'error');
+                    loadedCount++;
+                    checkComplete();
+                };
+                reader.readAsText(file);
+            });
+
+            // 处理Excel文件
+            excelFiles.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const firstSheet = workbook.Sheets[firstSheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '', raw: false });
+
+                        if (!jsonData || jsonData.length < 2) {
+                            loadedCount++;
+                            checkComplete();
+                            return;
+                        }
+
+                        let headers = jsonData[0];
+                        if (!headers || (Array.isArray(headers) && headers.every(h => !h))) {
+                            const colCount = jsonData[1] ? jsonData[1].length : 0;
+                            headers = [];
+                            for (let i = 0; i < colCount; i++) {
+                                headers.push('列' + (i + 1));
+                            }
+                            jsonData[0] = headers;
+                        }
+
+                        const rows = jsonData.slice(1).filter(row => row && Array.isArray(row) && row.some(cell => cell !== '' && cell !== undefined && cell !== null));
+
+                        const parsedData = rows.map(row => {
+                            let obj = {};
+                            headers.forEach((header, index) => {
+                                obj[header] = row[index];
+                            });
+                            return obj;
+                        });
+
+                        allData = allData.concat(parsedData);
+                    } catch (error) {
+                        log(`❌ 读取万里汇Excel ${file.name} 失败: ${error.message}`, 'error');
+                    }
+                    loadedCount++;
+                    checkComplete();
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function loadMultipleFiles(type, files) {
+            let loadedCount = 0;
+            let allData = [];
+            const fileList = Array.from(files);
+            const excelFiles = fileList.filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls'));
+            const csvFiles = fileList.filter(f => f.name.endsWith('.csv'));
+            const totalFiles = excelFiles.length + csvFiles.length;
+
+            if (totalFiles === 0) {
+                log(`⚠️ 没有找到可处理的 Excel 或 CSV 文件`, 'warning');
+                return;
+            }
+
+            log(`📂 加载 ${getTypeName(type)}: 检测到 ${excelFiles.length} 个 Excel, ${csvFiles.length} 个 CSV`, 'info');
+
+            function checkComplete() {
+                if (loadedCount === totalFiles) {
+                    dataStore[type] = allData;
+                    log(`✅ ${getTypeName(type)} 加载完成，共 ${allData.length} 条记录`, 'success');
+
+                    // 如果是汇率表，解析汇率
+                    if (type === 'exchange' && allData.length > 0) {
+                        dataStore.exchangeRates = parseExchangeRates(dataStore[type]);
+                    }
+
+                    updateButtonState();
+                    if (type === 'summary') showPreview('summary');
+                }
+            }
+
+            // 处理 CSV 文件
+            csvFiles.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        const text = e.target.result;
+                        if (text && text.trim() !== '') {
+                            const lines = text.split('\n').filter(line => line.trim());
+                            if (lines.length >= 2) {
+                                const headers = parseCSVLine(lines[0]);
+                                for (let i = 1; i < lines.length; i++) {
+                                    const values = parseCSVLine(lines[i]);
+                                    let obj = {};
+                                    headers.forEach((header, index) => {
+                                        obj[header] = values[index] || '';
+                                    });
+                                    allData.push(obj);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        log(`❌ 读取 CSV 文件 ${file.name} 失败: ${error.message}`, 'error');
+                    }
+                    loadedCount++;
+                    checkComplete();
+                };
+                reader.readAsText(file);
+            });
+
+            // 处理 Excel 文件
+            excelFiles.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+
+                        if (loadedCount === 0 && type === 'summary') {
+                            dataStore.summaryWorkbook = workbook;
+                        }
+
+                        const firstSheetName = workbook.SheetNames[0];
+                        const firstSheet = workbook.Sheets[firstSheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '', raw: false });
+
+                        if (jsonData && jsonData.length > 0) {
+                            let headers = jsonData[0];
+                            if (!headers || (Array.isArray(headers) && headers.every(h => !h))) {
+                                const colCount = jsonData[1] ? jsonData[1].length : 0;
+                                headers = [];
+                                for (let i = 0; i < colCount; i++) headers.push('列' + (i + 1));
+                            }
+
+                            const rows = jsonData.slice(1).filter(row => row && Array.isArray(row) && row.some(cell => cell !== '' && cell !== undefined && cell !== null));
+                            const parsedData = rows.map(row => {
+                                let obj = {};
+                                headers.forEach((header, index) => {
+                                    obj[header] = row[index];
+                                });
+                                return obj;
+                            });
+                            allData = allData.concat(parsedData);
+                        }
+                    } catch (error) {
+                        log(`❌ 读取 Excel 文件 ${file.name} 失败: ${error.message}`, 'error');
+                    }
+                    loadedCount++;
+                    checkComplete();
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function loadExcelFile(type, file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    if (type === 'summary') {
+                        dataStore.summaryWorkbook = workbook;
+                    }
+
+                    const firstSheetName = workbook.SheetNames[0];
+                    const firstSheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '', raw: false });
+
+                    if (!jsonData || jsonData.length === 0) {
+                        dataStore[type] = [];
+                        log(`⚠️ ${getTypeName(type)} 为空`, 'warning');
+                        updateButtonState();
+                        return;
+                    }
+
+                    let headers = jsonData[0];
+                    if (!headers || (Array.isArray(headers) && headers.every(h => !h))) {
+                        const colCount = jsonData[1] ? jsonData[1].length : 0;
+                        headers = [];
+                        for (let i = 0; i < colCount; i++) {
+                            headers.push('列' + (i + 1));
+                        }
+                        jsonData[0] = headers;
+                    }
+
+                    const rows = jsonData.slice(1).filter(row => row && Array.isArray(row) && row.some(cell => cell !== '' && cell !== undefined && cell !== null));
+
+                    dataStore[type] = rows.map(row => {
+                        let obj = {};
+                        headers.forEach((header, index) => {
+                            obj[header] = row[index];
+                        });
+                        return obj;
+                    });
+
+                    log(`✅ ${getTypeName(type)} 加载成功，共 ${dataStore[type].length} 条记录`, 'success');
+
+                    if (type === 'exchange') {
+                        dataStore.exchangeRates = parseExchangeRates(dataStore[type]);
+                        log(`📊 汇率表解析完成，共 ${Object.keys(dataStore.exchangeRates).length} 个汇率`, 'info');
+                    }
+
+                    updateButtonState();
+                    if (type === 'summary') showPreview('summary');
+                } catch (error) {
+                    log(`❌ 读取${getTypeName(type)}失败: ${error.message}`, 'error');
+                    console.error(error);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 解析千分位数字字符串为数值
+        function parseNumber(value) {
+            if (value === undefined || value === null || value === '') return 0;
+
+            // 如果已经是数值类型
+            if (typeof value === 'number') return value;
+
+            // 如果是字符串
+            if (typeof value === 'string') {
+                // 移除千分位逗号和空格
+                let cleaned = value.replace(/[,，\s]/g, '');
+
+                // 处理负数
+                let isNegative = false;
+                if (cleaned.startsWith('-') || cleaned.startsWith('(')) {
+                    isNegative = true;
+                    cleaned = cleaned.replace(/^-|[()]/g, '');
+                }
+
+                // 解析数值
+                let num = parseFloat(cleaned);
+                if (isNaN(num)) return 0;
+
+                return isNegative ? -num : num;
+            }
+
+            return 0;
+        }
+
+        function parseCSVLine(line) {
+            let result = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        }
+
+        function getTypeName(type) {
+            const names = {
+                summary: '收款汇总表',
+                wanlihu: '万里汇数据',
+                paypal: 'PayPal流水表',
+                shopify: 'Shopify订单表',
+                exchange: '汇率表'
+            };
+            return names[type] || type;
+        }
+
+        function parseExchangeRates(data) {
+            const currencyRates = {};
+
+            if (!data || data.length < 1) {
+                log(`⚠️ 汇率表数据不足`, 'warning');
+                return {};
+            }
+
+            // 币种映射表（支持中文名称）
+            const currencyMap = {
+                'USD': 'USD', 'USD美金': 'USD', '美元': 'USD', '美金': 'USD',
+                'EUR': 'EUR', 'EUR欧元': 'EUR', '欧元': 'EUR',
+                'GBP': 'GBP', 'GBP英镑': 'GBP', '英镑': 'GBP',
+                'CAD': 'CAD', 'CAD加元': 'CAD', '加元': 'CAD',
+                'AUD': 'AUD', 'AUD澳元': 'AUD', '澳元': 'AUD',
+                'JPY': 'JPY', 'JPY日元': 'JPY', '日元': 'JPY',
+                'HKD': 'HKD', '港币': 'HKD',
+                'SEK': 'SEK', '瑞典克朗': 'SEK',
+                'PLN': 'PLN', '波兰兹罗提': 'PLN',
+                'TRY': 'TRY', '土耳其里拉': 'TRY', '新土耳其里拉货币': 'TRY',
+                'SAR': 'SAR', '沙特里亚尔': 'SAR',
+                'MXN': 'MXN', '墨西哥比索': 'MXN',
+                'INR': 'INR', '印度卢比': 'INR',
+                'BRL': 'BRL', '巴西雷亚尔': 'BRL',
+                'AED': 'AED', '阿联酋迪拉姆': 'AED',
+                'SGD': 'SGD', '新加坡元': 'SGD',
+                'THB': 'THB', '泰铢': 'THB',
+                'DKK': 'DKK', '丹麦克朗': 'DKK',
+                'PHP': 'PHP', '菲律宾比索': 'PHP',
+                'NZD': 'NZD', '新西兰元': 'NZD',
+                'CHF': 'CHF', '瑞士法郎': 'CHF',
+                'MYR': 'MYR', '马来西亚林吉特': 'MYR',
+                'RUB': 'RUB', '俄罗斯卢布': 'RUB',
+                'HUF': 'HUF', '匈牙利福林': 'HUF',
+                'ILS': 'ILS', '以色列新谢克尔': 'ILS',
+                'VND': 'VND', '越南盾': 'VND',
+                'TWD': 'TWD', '新台币': 'TWD',
+                'CZK': 'CZK', '捷克克朗': 'CZK',
+                'CNY': 'CNY', '人民币': 'CNY'
+            };
+
+            // 尝试识别表头，找到"币种"和"汇率"对应的列索引
+            let currencyColIndex = -1;
+            let rateColIndex = -1;
+
+            // 检查第一条数据是否是对象格式
+            const firstItem = data[0];
+            if (firstItem && typeof firstItem === 'object' && !Array.isArray(firstItem)) {
+                // 对象数组格式：[{币种: 'USD', 汇率: 6.6}, ...]
+                const keys = Object.keys(firstItem);
+                for (let i = 0; i < keys.length; i++) {
+                    const key = keys[i];
+                    const lowerKey = key.toLowerCase();
+                    if (lowerKey.includes('币种') || lowerKey.includes('currency')) {
+                        currencyColIndex = key;
+                    }
+                    if (lowerKey.includes('汇率') || lowerKey.includes('rate')) {
+                        rateColIndex = key;
+                    }
+                }
+
+                if (currencyColIndex === -1 || rateColIndex === -1) {
+                    log(`⚠️ 无法识别汇率表表头，尝试使用第一列和第二列`, 'warning');
+                    currencyColIndex = keys[0];
+                    rateColIndex = keys[1];
+                }
+
+                // 遍历所有数据行
+                for (let i = 0; i < data.length; i++) {
+                    const row = data[i];
+                    if (!row) continue;
+
+                    const currency = row[currencyColIndex];
+                    const rate = row[rateColIndex];
+
+                    // 跳过空行或无效数据
+                    if (!currency || currency === '' || rate === undefined || rate === null || rate === '') {
+                        continue;
+                    }
+
+                    // 使用币种映射表转换为标准代码
+                    const stdCurrency = currencyMap[currency] || currency;
+
+                    // 解析汇率值，保留完整小数位数
+                    let rateValue;
+                    if (typeof rate === 'number') {
+                        rateValue = rate;
+                    } else if (typeof rate === 'string') {
+                        // 移除可能的空格和千分位逗号
+                        rateValue = parseFloat(rate.replace(/[,，\s]/g, ''));
+                    } else {
+                        continue;
+                    }
+
+                    // 确保汇率值有效
+                    if (!isNaN(rateValue) && rateValue > 0) {
+                        currencyRates[stdCurrency] = rateValue;
+                    }
+                }
+            } else if (Array.isArray(firstItem)) {
+                // 二维数组格式：[[币种, 汇率], [USD, 6.6], ...]
+                const firstRow = data[0];
+                if (!firstRow || firstRow.length < 2) {
+                    log(`⚠️ 汇率表格式不正确，需要至少两列`, 'warning');
+                    return {};
+                }
+
+                // 尝试识别表头
+                let headerCurrencyIdx = 0;
+                let headerRateIdx = 1;
+
+                // 检查第一行是否是表头（包含"币种"、"汇率"等关键字）
+                const firstRowStr = firstRow.join('').toLowerCase();
+                if (firstRowStr.includes('币种') || firstRowStr.includes('currency')) {
+                    // 第一行是表头，从第二行开始读取
+                    for (let i = 1; i < data.length; i++) {
+                        const row = data[i];
+                        if (!row || row.length < 2) continue;
+
+                        const currency = row[0];
+                        const rate = row[1];
+
+                        if (!currency || currency === '' || rate === undefined || rate === null || rate === '') {
+                            continue;
+                        }
+
+                        const stdCurrency = currencyMap[currency] || currency;
+
+                        let rateValue;
+                        if (typeof rate === 'number') {
+                            rateValue = rate;
+                        } else if (typeof rate === 'string') {
+                            rateValue = parseFloat(rate.replace(/[,，\s]/g, ''));
+                        } else {
+                            continue;
+                        }
+
+                        if (!isNaN(rateValue) && rateValue > 0) {
+                            currencyRates[stdCurrency] = rateValue;
+                        }
+                    }
+                } else {
+                    // 第一行是数据，直接读取
+                    for (let i = 0; i < data.length; i++) {
+                        const row = data[i];
+                        if (!row || row.length < 2) continue;
+
+                        const currency = row[0];
+                        const rate = row[1];
+
+                        if (!currency || currency === '' || rate === undefined || rate === null || rate === '') {
+                            continue;
+                        }
+
+                        const stdCurrency = currencyMap[currency] || currency;
+
+                        let rateValue;
+                        if (typeof rate === 'number') {
+                            rateValue = rate;
+                        } else if (typeof rate === 'string') {
+                            rateValue = parseFloat(rate.replace(/[,，\s]/g, ''));
+                        } else {
+                            continue;
+                        }
+
+                        if (!isNaN(rateValue) && rateValue > 0) {
+                            currencyRates[stdCurrency] = rateValue;
+                        }
+                    }
+                }
+            }
+
+            log(`📊 汇率表解析完成，共 ${Object.keys(currencyRates).length} 个汇率`, 'info');
+            log(`📊 汇率数据: ${JSON.stringify(currencyRates)}`, 'info');
+
+            return currencyRates;
+        }
+
+        function updateButtonState() {
+            document.getElementById('btnWanlihu').disabled = !(dataStore.wanlihu && dataStore.wanlihu.length > 0);
+            document.getElementById('btnPaypal').disabled = !(dataStore.paypal && dataStore.paypal.length > 0 && dataStore.shopify && dataStore.shopify.length > 0);
+            document.getElementById('btnExport').disabled = !(dataStore.processedData && dataStore.processedData.length > 0);
+        }
+
+        function log(message, type = 'info') {
+            const logArea = document.getElementById('logArea');
+            const time = new Date().toLocaleTimeString();
+            logArea.innerHTML += `<span class="${type}">[${time}] ${message}</span>\n`;
+            logArea.scrollTop = logArea.scrollHeight;
+
+            // 增强：将错误和警告同步到服务器终端
+            if (type === 'error' || type === 'warning' || type === 'success') {
+                fetch('/api/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type, message, time })
+                }).catch(err => console.error('无法发送日志到服务器:', err));
+            }
+            
+            // 同时也输出到浏览器控制台
+            if (type === 'error') console.error(`[${type.toUpperCase()}] ${message}`);
+            else if (type === 'warning') console.warn(`[${type.toUpperCase()}] ${message}`);
+            else console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function showPreview(type) {
+            const container = document.getElementById('previewContainer');
+            const data = dataStore[type];
+
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            const btnMap = { summary: 0, wanlihu: 1, paypal: 2, shopify: 3 };
+            const btns = document.querySelectorAll('.tab-btn');
+            if (btns[btnMap[type]]) btns[btnMap[type]].classList.add('active');
+
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">暂无数据</div>';
+                return;
+            }
+
+            const displayData = data.slice(0, 50);
+            const headers = Object.keys(displayData[0]);
+
+            let html = '<table><thead><tr>';
+            headers.forEach(h => html += `<th>${h}</th>`);
+            html += '</tr></thead><tbody>';
+
+            displayData.forEach(row => {
+                html += '<tr>';
+                headers.forEach(h => {
+                    let value = row[h];
+                    if (value === undefined || value === null) value = '';
+                    if (typeof value === 'string' && value.length > 30) value = value.substring(0, 30) + '...';
+                    html += `<td>${value}</td>`;
+                });
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            if (data.length > 50) {
+                html += `<div style="padding: 10px; text-align: center; color: #999;">... 共 ${data.length} 条记录，仅显示前50条</div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function processWanlihu() {
+            log('===== 开始处理万里汇数据 =====', 'info');
+
+            if (!dataStore.wanlihu || dataStore.wanlihu.length === 0) {
+                log('❌ 没有万里汇数据', 'error');
+                return;
+            }
+
+            const wanlihuData = dataStore.wanlihu;
+
+            log('--- 检查重复数据 ---', 'info');
+            const dateCount = {};
+            const duplicateDates = [];
+
+            wanlihuData.forEach(row => {
+                const date = row['Transaction Date'];
+                if (date) {
+                    if (dateCount[date]) {
+                        dateCount[date]++;
+                        if (!duplicateDates.includes(date)) duplicateDates.push(date);
+                    } else {
+                        dateCount[date] = 1;
+                    }
+                }
+            });
+
+            if (duplicateDates.length > 0) {
+                log(`⚠️ 发现 ${duplicateDates.length} 个重复的Transaction Date`, 'warning');
+            } else {
+                log('✅ 未发现重复的Transaction Date', 'success');
+            }
+
+            log('--- 检查漏单情况 ---', 'info');
+            const dailyData = {};
+
+            wanlihuData.forEach(row => {
+                const dateStr = row['Transaction Date'];
+                if (dateStr) {
+                    const date = new Date(dateStr);
+                    if (!isNaN(date)) {
+                        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                        if (!dailyData[key]) dailyData[key] = 0;
+                        dailyData[key] += Math.abs(parseNumber(row['Net']));
+                    }
+                }
+            });
+
+            const dates = Object.keys(dailyData).sort();
+            if (dates.length > 0) {
+                log(`📊 数据日期范围: ${dates[0]} 到 ${dates[dates.length - 1]}`, 'info');
+                log(`📊 共 ${dates.length} 天有收款记录`, 'info');
+            }
+
+            log('--- 提取并处理数据 ---', 'info');
+
+            const newRows = [];
+
+            wanlihuData.forEach(row => {
+                const payoutDate = row['Payout Date'];
+                const net = parseNumber(row['Net']);
+                const currency = row['Currency'] || row['Presentment Currency'];
+                const order = row['Order'];
+
+                let payMonth = '';
+                if (payoutDate) {
+                    const date = new Date(payoutDate);
+                    if (!isNaN(date)) {
+                        payMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    }
+                }
+
+                const rate = findExchangeRate(currency);
+                const rmb = net * rate;
+
+                newRows.push({
+                    '账号': '万里汇',
+                    '币种': currency,
+                    '账单号-PayPal': '',
+                    '净额': net,
+                    '邮箱号': '',
+                    'Payout Date': payoutDate,
+                    '收款月份': payMonth,
+                    '店铺': '',
+                    '收款平台': '万里汇',
+                    '订单号': order,
+                    '金额': net,
+                    '汇率': rate,
+                    '人民币': rmb
+                });
+            });
+
+            dataStore.processedData = dataStore.processedData || [];
+            dataStore.processedData = dataStore.processedData.concat(newRows);
+
+            log(`✅ 万里汇数据处理完成，新增 ${newRows.length} 条记录`, 'success');
+            updateButtonState();
+        }
+
+        function processPaypal() {
+            log('===== 开始处理PayPal数据 =====', 'info');
+
+            if (!dataStore.paypal || dataStore.paypal.length === 0) {
+                log('❌ 没有PayPal流水数据', 'error');
+                return;
+            }
+
+            if (!dataStore.shopify || dataStore.shopify.length === 0) {
+                log('❌ 没有Shopify订单数据', 'error');
+                return;
+            }
+
+            log('--- 构建Shopify订单索引 ---', 'info');
+            const shopifyByPaymentRef = {};
+            const shopifyByEmail = {};
+            const seenPaymentRef = new Set();
+
+            dataStore.shopify.forEach(row => {
+                const paymentRef = row['Payment Reference'];
+                if (paymentRef && !seenPaymentRef.has(paymentRef)) {
+                    shopifyByPaymentRef[paymentRef] = row;
+                    seenPaymentRef.add(paymentRef);
+                }
+
+                const email = row['Email'];
+                if (email) {
+                    if (!shopifyByEmail[email]) shopifyByEmail[email] = [];
+                    if (!shopifyByEmail[email].some(r => r['Name'] === row['Name'])) {
+                        shopifyByEmail[email].push(row);
+                    }
+                }
+            });
+
+            log(`   Shopify订单索引: Payment Reference ${Object.keys(shopifyByPaymentRef).length} 个, Email ${Object.keys(shopifyByEmail).length} 个`, 'info');
+
+            log('--- 匹配Paypal流水 ---', 'info');
+            let matchCount = 0;
+            let noMatchCount = 0;
+
+            const newRows = [];
+
+            dataStore.paypal.forEach(row => {
+                const billNo = row['账单号'] || row['Reference'] || '';
+                const senderEmail = row['发件人邮箱地址'];
+                const receiverEmail = row['收件人邮箱地址'];
+                const net = parseNumber(row['净额']);
+                const currency = row['币种'];
+                const date = row['日期'];
+
+                let matchedOrder = null;
+                let matchedEmail = '';
+
+                // 先尝试账单号匹配
+                if (billNo && billNo.trim() !== '') {
+                    matchedOrder = shopifyByPaymentRef[billNo];
+                    if (matchedOrder) matchedEmail = matchedOrder['Email'];
+                }
+
+                // 如果账单号未匹配，尝试邮箱匹配
+                if (!matchedOrder) {
+                    if (net < 0) {
+                        const orders = shopifyByEmail[receiverEmail];
+                        if (orders && orders.length > 0) {
+                            matchedOrder = orders[0];
+                            matchedEmail = receiverEmail;
+                        }
+                    } else {
+                        const orders = shopifyByEmail[senderEmail];
+                        if (orders && orders.length > 0) {
+                            matchedOrder = orders[0];
+                            matchedEmail = senderEmail;
+                        }
+                    }
+                }
+
+                // 计算收款月份
+                let payMonth = '';
+                if (date) {
+                    const d = new Date(date);
+                    if (!isNaN(d)) {
+                        payMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    }
+                }
+
+                const rate = findExchangeRate(currency);
+                const rmb = net * rate;
+
+                // 无论是匹配成功还是未匹配，都加入汇总表
+                if (matchedOrder) {
+                    matchCount++;
+
+                    newRows.push({
+                        '账号': 'PayPal',
+                        '币种': currency,
+                        '账单号-PayPal': billNo,
+                        '净额': net,
+                        '邮箱号': matchedEmail || senderEmail || receiverEmail,
+                        'Payout Date': date,
+                        '收款月份': payMonth,
+                        '店铺': matchedOrder['Vendor'] || '',
+                        '收款平台': 'PayPal',
+                        '订单号': matchedOrder['Name'],
+                        '金额': net,
+                        '汇率': rate,
+                        '人民币': rmb
+                    });
+                } else {
+                    noMatchCount++;
+                    // 未匹配的订单也加入汇总表，店铺和订单号为空
+                    newRows.push({
+                        '账号': 'PayPal',
+                        '币种': currency,
+                        '账单号-PayPal': billNo,
+                        '净额': net,
+                        '邮箱号': senderEmail || receiverEmail || '',
+                        'Payout Date': date,
+                        '收款月份': payMonth,
+                        '店铺': '',
+                        '收款平台': 'PayPal',
+                        '订单号': '',
+                        '金额': net,
+                        '汇率': rate,
+                        '人民币': rmb
+                    });
+                    log(`   ⚠️ 未匹配: 账单号=${billNo}`, 'warning');
+                }
+            });
+
+            log(`✅ PayPal数据处理完成: 匹配成功 ${matchCount} 条, 未匹配 ${noMatchCount} 条`, 'success');
+
+            dataStore.processedData = dataStore.processedData || [];
+            dataStore.processedData = dataStore.processedData.concat(newRows);
+
+            updateButtonState();
+        }
+
+        function findExchangeRate(currency) {
+            const defaultRates = {
+                'USD': 7.2, 'EUR': 7.8, 'GBP': 9.1, 'CAD': 5.0,
+                'AUD': 4.5, 'JPY': 0.048, 'HKD': 0.92
+            };
+
+            if (!currency) return 1;
+
+            const currencyMap = {
+                'USD': 'USD', '美元': 'USD', 'EUR': 'EUR', '欧元': 'EUR',
+                'GBP': 'GBP', '英镑': 'GBP', 'CAD': 'CAD', '加元': 'CAD',
+                'AUD': 'AUD', '澳元': 'AUD', 'JPY': 'JPY', '日元': 'JPY',
+                'HKD': 'HKD', '港币': 'HKD'
+            };
+
+            const stdCurrency = currencyMap[currency] || currency;
+
+            // 直接使用汇率表中的汇率（不以日期为key）
+            if (dataStore.exchangeRates && Object.keys(dataStore.exchangeRates).length > 0) {
+                const rate = dataStore.exchangeRates[stdCurrency];
+                if (rate) return rate;
+            }
+
+            return defaultRates[stdCurrency] || 1;
+        }
+
+        function exportExcel() {
+            if (!dataStore.processedData || dataStore.processedData.length === 0) {
+                log('❌ 没有可导出的数据', 'error');
+                return;
+            }
+
+            log('--- 开始导出Excel ---', 'info');
+
+            let wb, ws, sheetName;
+
+            if (dataStore.summaryWorkbook) {
+                wb = dataStore.summaryWorkbook;
+                sheetName = wb.SheetNames[0];
+                ws = wb.Sheets[sheetName];
+
+                const currentRef = ws['!ref'];
+                let startRow = 1;
+
+                if (dataStore.summary && dataStore.summary.length > 0) {
+                    startRow = 1 + dataStore.summary.length;
+                }
+
+                const headerRow = [];
+                let colCount = 0;
+                if (currentRef) {
+                    const range = XLSX.utils.decode_range(currentRef);
+                    colCount = range.e.c + 1;
+
+                    for (let c = 0; c <= range.e.c; c++) {
+                        const cellRef = XLSX.utils.encode_cell({ c: c, r: 0 });
+                        const cell = ws[cellRef];
+                        headerRow.push(cell ? cell.v : '');
+                    }
+                }
+
+                if (headerRow.length === 0 || headerRow.every(h => !h)) {
+                    const summaryHeaders = [
+                        '账号', '币种', '账单号-PayPal', '净额', '邮箱号', 'Payout Date',
+                        '收款月份', '店铺', '收款平台', '订单号', '金额', '汇率', '人民币'
+                    ];
+                    headerRow.push(...summaryHeaders);
+                    colCount = summaryHeaders.length;
+
+                    summaryHeaders.forEach((h, i) => {
+                        const cellRef = XLSX.utils.encode_cell({ c: i, r: 0 });
+                        ws[cellRef] = { t: 's', v: h };
+                    });
+                }
+
+                dataStore.processedData.forEach((row, rowIndex) => {
+                    const targetRow = startRow + rowIndex;
+                    headerRow.forEach((h, colIndex) => {
+                        const val = row[h];
+                        if (val !== undefined && val !== null && val !== '') {
+                            const cellRef = XLSX.utils.encode_cell({ c: colIndex, r: targetRow });
+                            ws[cellRef] = { t: typeof val === 'number' ? 'n' : 's', v: val };
+                        }
+                    });
+                });
+
+                const newRowCount = startRow + dataStore.processedData.length;
+                ws['!ref'] = XLSX.utils.encode_range({
+                    s: { c: 0, r: 0 },
+                    e: { c: colCount - 1, r: newRowCount }
+                });
+
+                log(`📊 使用原始工作表: ${sheetName}`, 'info');
+            } else {
+                let allData = [];
+
+                if (dataStore.summary && dataStore.summary.length > 0) {
+                    allData = [...dataStore.summary];
+                }
+                allData = allData.concat(dataStore.processedData);
+
+                const summaryHeaders = [
+                    '账号', '币种', '账单号-PayPal', '净额', '邮箱号', 'Payout Date',
+                    '收款月份', '店铺', '收款平台', '订单号', '金额', '汇率', '人民币'
+                ];
+
+                ws = XLSX.utils.json_to_sheet(allData, { header: summaryHeaders });
+
+                const colWidths = summaryHeaders.map(key => ({ wch: 15 }));
+                ws['!cols'] = colWidths;
+
+                wb = XLSX.utils.book_new();
+                sheetName = '收款汇总表';
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            }
+
+            const filename = `收款汇总表_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            XLSX.writeFile(wb, filename);
+
+            log(`✅ 导出成功: ${filename}`, 'success');
+
+            let totalRecords = 0;
+            if (dataStore.summary && dataStore.summary.length > 0) {
+                totalRecords += dataStore.summary.length;
+            }
+            totalRecords += dataStore.processedData.length;
+            log(`   共 ${totalRecords} 条记录`, 'success');
+        }
+
+        function clearAll() {
+            dataStore = {
+                summary: null,
+                summaryWorkbook: null,
+                wanlihu: [],
+                paypal: [],
+                shopify: [],
+                exchange: null,
+                exchangeRates: {},
+                processedData: []
+            };
+
+            const filenameTexts = {
+                summary: '点击选择或拖入Excel文件',
+                wanlihu: '点击选择文件夹/文件或拖入文件夹',
+                paypal: '点击选择文件夹/文件或拖入文件夹',
+                shopify: '点击选择文件夹/文件或拖入文件夹',
+                exchange: '点击选择文件夹/文件或拖入文件夹'
+            };
+            ['summary', 'wanlihu', 'paypal', 'shopify', 'exchange'].forEach(type => {
+                const el = document.getElementById(type + 'Filename');
+                if (el) el.textContent = filenameTexts[type];
+                const box = document.getElementById(type + 'FileBox');
+                if (box) box.classList.remove('loaded');
+                const input = document.getElementById(type + 'File');
+                if (input) input.value = '';
+            });
+
+            document.getElementById('btnWanlihu').disabled = true;
+            document.getElementById('btnPaypal').disabled = true;
+            document.getElementById('btnExport').disabled = true;
+
+            document.getElementById('logArea').innerHTML = '请上传数据文件后开始处理...';
+            document.getElementById('previewContainer').innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">暂无数据</div>';
+
+            log('✅ 已清空所有数据', 'success');
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.classList.add('loaded');
+        }
+
+        function handleDragLeave(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.classList.remove('loaded');
+        }
+
+        // 递归读取文件夹中的所有文件
+        function getAllFilesFromDirectory(reader) {
+            return new Promise((resolve, reject) => {
+                const files = [];
+                let entries = [];
+
+                function readEntries() {
+                    reader.readEntries((results) => {
+                        if (results && results.length > 0) {
+                            entries = results;
+                            processEntries();
+                        } else {
+                            // 读取完成
+                            resolve(files);
+                        }
+                    }, (err) => {
+                        console.error('读取文件夹出错:', err);
+                        resolve(files); // 出错时也返回已收集的文件
+                    });
+                }
+
+                function processEntries() {
+                    if (entries.length === 0) {
+                        resolve(files);
+                        return;
+                    }
+
+                    const entry = entries.shift();
+
+                    if (entry.isFile) {
+                        entry.file((file) => {
+                            files.push(file);
+                            processEntries();
+                        }, (err) => {
+                            console.error('读取文件出错:', err);
+                            processEntries();
+                        });
+                    } else if (entry.isDirectory) {
+                        getAllFilesFromDirectory(entry.createReader())
+                            .then((subFiles) => {
+                                files.push(...subFiles);
+                                processEntries();
+                            })
+                            .catch((err) => {
+                                console.error('读取子文件夹出错:', err);
+                                processEntries();
+                            });
+                    } else {
+                        processEntries();
+                    }
+                }
+
+                readEntries();
+            });
+        }
+
+        function handleDrop(event, type) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.classList.remove('loaded');
+
+            // 先尝试使用DataTransferItems API（支持文件夹）
+            const items = event.dataTransfer.items;
+
+            if (items && items.length > 0) {
+                // 检查是否包含文件夹
+                let hasFolder = false;
+                let hasFiles = false;
+
+                // 先快速检查
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+                    if (entry) {
+                        if (entry.isDirectory) {
+                            hasFolder = true;
+                            break;
+                        }
+                        if (entry.isFile) {
+                            hasFiles = true;
+                        }
+                    }
+                }
+
+                if (hasFolder) {
+                    log(`📂 检测到文件夹，正在读取...`, 'info');
+                    const allFiles = [];
+
+                    // 收集所有文件和文件夹
+                    const promises = [];
+                    for (let i = 0; i < items.length; i++) {
+                        const item = items[i];
+                        const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+
+                        if (entry) {
+                            if (entry.isDirectory) {
+                                promises.push(
+                                    getAllFilesFromDirectory(entry.createReader()).then(files => {
+                                        allFiles.push(...files);
+                                    })
+                                );
+                            } else if (entry.isFile) {
+                                promises.push(
+                                    new Promise((resolve) => {
+                                        item.getAsFile((file) => {
+                                            if (file) allFiles.push(file);
+                                            resolve();
+                                        });
+                                    })
+                                );
+                            }
+                        }
+                    }
+
+                    Promise.all(promises).then(() => {
+                        if (allFiles.length > 0) {
+                            const input = document.getElementById(type + 'File');
+                            if (input) {
+                                const dataTransfer = new DataTransfer();
+                                allFiles.forEach(f => dataTransfer.items.add(f));
+                                input.files = dataTransfer.files;
+
+                                log(`📋 读取到 ${input.files.length} 个文件`, 'info');
+                                handleFile(type);
+                            }
+                        } else {
+                            log('⚠️ 文件夹为空或无法读取', 'warning');
+                        }
+                    }).catch(err => {
+                        log(`❌ 读取文件夹失败: ${err.message}`, 'error');
+                    });
+                    return;
+                }
+            }
+
+            // 如果不是文件夹，使用原来的方式处理（直接使用files）
+            const files = event.dataTransfer.files;
+            log(`📥 拖入文件数量: ${files ? files.length : 0}`, 'info');
+
+            if (files && files.length > 0) {
+                const fileNames = Array.from(files).slice(0, 5).map(f => f.name).join(', ');
+                log(`📄 拖入的文件: ${fileNames}${files.length > 5 ? '...' : ''}`, 'info');
+
+                const input = document.getElementById(type + 'File');
+                if (input) {
+                    // 直接设置files
+                    input.files = files;
+
+                    log(`📋 传递给handleFile的文件数: ${input.files.length}`, 'info');
+                    handleFile(type);
+                }
+            } else {
+                log('⚠️ 没有检测到拖入的文件', 'warning');
+            }
+        }
+    </script>
+</body>
+
+</html>

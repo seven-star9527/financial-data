@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem *)",
+      "WebFetch(domain:github.com)",
+      "PowerShell(Test-Path *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "PowerShell(git clone --depth 1 https://github.com/obra/superpowers \"$env:TEMP\\\\superpowers\" 2>&1)",
+      "PowerShell(Remove-Item *)"
+    ]
+  }
+}

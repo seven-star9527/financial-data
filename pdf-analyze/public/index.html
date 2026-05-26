@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>亚马逊 PDF 批量分析工具</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>亚马逊 PDF 批量分析工具</h1>
+            <p>自动提取 Seller Central 报表数据并按汇率折算填入汇总表</p>
+        </header>
+
+        <main>
+            <!-- 月度汇率：紧凑一行式查询 + 手动修改 -->
+            <div class="rate-section">
+                <span class="rate-icon">💱</span>
+                <label class="rate-label">月度汇率</label>
+                <select id="monthly-rate-month-select" class="rate-select">
+                    <option value="">选择月份...</option>
+                </select>
+                <select id="monthly-rate-currency-select" class="rate-select">
+                    <option value="">选择货币...</option>
+                </select>
+                <span class="rate-eq">=</span>
+                <input type="number" id="monthly-rate-input" class="rate-input" placeholder="查询后显示" step="0.0001"
+                    disabled>
+                <button id="monthly-rate-save-btn" class="secondary-btn small" disabled title="保存手动修改的汇率">💾 保存</button>
+                <button id="fetch-history-rates-btn" class="secondary-btn small" style="background-color: #f1f5f9;"
+                    title="从中国银行抓取该月全量汇率">🌐 同步该月</button>
+                <span id="rate-update-time" class="rate-hint"></span>
+            </div>
+
+            <!-- 月度查询结果展示区 (动态表格或折线图) -->
+            <div id="monthly-result-container" class="single-card hidden" style="margin-bottom: 2rem;">
+                <div id="monthly-result-header"
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 id="monthly-result-title">查询结果</h3>
+                    <button class="secondary-btn small"
+                        onclick="document.getElementById('monthly-result-container').classList.add('hidden')">关闭</button>
+                </div>
+                <div id="monthly-result-content">
+                    <canvas id="monthly-rate-chart" style="max-height: 300px; width: 100%;"></canvas>
+                    <div id="monthly-rate-table-container" class="hidden">
+                        <table class="data-table" style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th>货币</th>
+                                    <th>中行折算价 (100外币)</th>
+                                    <th>折算率 (1外币)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="monthly-rate-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PDF 上传区 -->
+            <div class="upload-section single-card" style="position: relative;">
+                <div class="upload-card" id="pdf-drop-zone">
+                    <div class="icon">📄</div>
+                    <h3>上传汇总 PDF</h3>
+                    <p>拖拽文件或文件夹到这里，或 <span class="browse" id="upload-entrance-btn">点击上传</span></p>
+                    <input type="file" id="pdf-input" accept=".pdf" multiple hidden>
+                    <input type="file" id="pdf-folder-input" webkitdirectory directory multiple hidden>
+
+                    <!-- 精巧的下拉分流气泡菜单 -->
+                    <div id="upload-menu-popup" class="upload-menu-popup hidden">
+                        <div class="upload-menu-item" id="menu-select-files">
+                            <span class="menu-icon">📄</span>
+                            <div class="menu-text">
+                                <span class="menu-title">选择文件</span>
+                                <span class="menu-desc">支持批量多选 PDF</span>
+                            </div>
+                        </div>
+                        <div class="upload-menu-item" id="menu-select-folder">
+                            <span class="menu-icon">📁</span>
+                            <div class="menu-text">
+                                <span class="menu-title">选择文件夹</span>
+                                <span class="menu-desc">自动扫描子目录</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 精美待分析文件列表 -->
+                <div id="file-list-container" class="file-list-container hidden">
+                    <div class="file-list-header">
+                        <span class="file-list-count-label">📋 待分析文件列表 (<span id="file-list-count">0</span>)</span>
+                        <button id="clear-all-files-btn" class="clear-all-btn">🧹 清空全部</button>
+                    </div>
+                    <div id="imported-file-list" class="imported-file-list"></div>
+                </div>
+            </div>
+
+            <!-- 公司主体配置 -->
+            <div class="config-section">
+                <div class="config-header" style="cursor: pointer; user-select: none;" id="config-section-header">
+                    <h3 style="display: flex; align-items: center; gap: 8px;">
+                        <span id="config-toggle-arrow" style="transition: transform 0.2s ease; display: inline-block; transform: rotate(-90deg);">▼</span>
+                        公司主体配置 (根据文件名关键字自动匹配)
+                    </h3>
+                    <button id="add-mapping-btn" class="secondary-btn small">+ 添加规则</button>
+                </div>
+                <div id="config-section-content" class="hidden" style="transition: all 0.3s ease;">
+                    <div id="mapping-list" class="mapping-list">
+                        <!-- Mapping rows will be added here -->
+                    </div>
+                    <p class="config-tip">提示：如果文件名包含左侧关键字，则"公司主体"列填入右侧名称。配置自动保存到服务端。</p>
+                </div>
+            </div>
+
+            <!-- 历史分析记录 -->
+            <div class="config-section" style="margin-top: 1.5rem; margin-bottom: 2rem;">
+                <div class="config-header">
+                    <h3 style="display: flex; align-items: center; gap: 6px;">📜 历史分析记录</h3>
+                    <button id="clear-history-btn" class="secondary-btn small"
+                        style="background-color: #fee2e2; color: #ef4444; border-color: #fca5a5;">🗑️ 清空历史</button>
+                </div>
+                <div class="table-responsive"
+                    style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+                    <table class="data-table"
+                        style="width: 100%; border-collapse: collapse; margin-top: 0; font-size: 0.85rem;">
+                        <thead>
+                            <tr style="background: #f8fafc; border-bottom: 1px solid var(--border-color);">
+                                <th
+                                    style="padding: 0.6rem; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; border-bottom: 1px solid var(--border-color);">
+                                    时间</th>
+                                <th
+                                    style="padding: 0.6rem; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; border-bottom: 1px solid var(--border-color);">
+                                    月份</th>
+                                <th
+                                    style="padding: 0.6rem; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; border-bottom: 1px solid var(--border-color);">
+                                    文件数量</th>
+                                <th
+                                    style="padding: 0.6rem; text-align: center; font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; border-bottom: 1px solid var(--border-color); width: 140px;">
+                                    操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body">
+                            <!-- 历史数据行将动态插入此处 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="action-bar">
+                <button id="process-btn" class="primary-btn" disabled>开始分析并生成报表</button>
+                <button id="reset-btn" class="secondary-btn reset-btn">🔄 重置</button>
+            </div>
+
+            <!-- Status and Progress -->
+            <div id="progress-container" class="hidden">
+                <div class="status-header">
+                    <h3>处理进度</h3>
+                    <span id="status-text">准备中...</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar" id="progress-bar"></div>
+                </div>
+
+                <!-- 预计时间倒计时与财务小姐姐专属温馨卡片 -->
+                <div id="estimate-time-card" class="estimate-time-card hidden">
+                    <div class="coffee-icon">☕</div>
+                    <div class="estimate-info">
+                        <div class="estimate-title">报表深度分析中...</div>
+                        <p class="estimate-desc">预计分析还需要约 <span id="estimate-time-left"
+                                class="time-highlight">--秒</span></p>
+                        <p class="coffee-tip">温馨提示：数据处理需要一些时间，可以先去喝杯咖啡、伸个懒腰，分析完成后会自动展示报表数据哦~</p>
+                    </div>
+                </div>
+
+                <ul id="log-list" class="log-list"></ul>
+            </div>
+
+            <!-- Download Result -->
+            <div id="result-container" class="hidden">
+                <div class="success-message">
+                    <h3>处理完成！</h3>
+                    <p>数据分析已就绪，请预览下方生成的报表数据，再执行下载：</p>
+                </div>
+
+                <!-- 数据预览区域 -->
+                <div class="preview-section"
+                    style="margin-top: 1.5rem; margin-bottom: 2rem; background: #fff; border-radius: 12px; border: 1px solid var(--border-color); padding: 1.5rem; text-align: left; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 12px;">
+                        <h3
+                            style="font-size: 1.1rem; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 8px; margin: 0;">
+                            <span>📊</span> 报表数据实时预览
+                        </h3>
+                        <div id="re-analyze-container" class="hidden" style="display: flex; align-items: center; gap: 8px;">
+                            <input type="file" id="re-analyze-input" accept=".pdf" multiple hidden>
+                            <button id="re-analyze-btn" class="secondary-btn small" 
+                                style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); color: #1d4ed8; border: 1px solid #bfdbfe; font-weight: 600; display: flex; align-items: center; gap: 6px; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.06); font-size: 0.85rem;">
+                                🔄 重新解析勾选文件
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive" id="preview-table-container"
+                        style="position: relative; overflow-x: auto; max-width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <table class="data-table"
+                            style="width: 100%; min-width: 1500px; border-collapse: collapse; margin-top: 0;">
+                            <thead>
+                                <tr id="preview-table-header">
+                                    <!-- 动态填充表头 -->
+                                </tr>
+                            </thead>
+                            <tbody id="preview-table-body">
+                                <!-- 动态填充行数据 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div
+                        style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.75rem; font-style: italic; display: flex; justify-content: space-between; align-items: center;">
+                        <span>💡 提示：表格可以左右滑动查看完整 18 列属性，负数金额已自动标红</span>
+                        <span style="font-weight: 600; color: var(--primary-color);">Premium Hub 表格预览</span>
+                    </div>
+                </div>
+
+                <!-- 自定义文件名输入框 -->
+                <div
+                    style="margin-bottom: 1.5rem; text-align: left; background: #fff; padding: 1.2rem; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); max-width: 500px; margin-left: auto; margin-right: auto;">
+                    <label for="export-filename-input"
+                        style="font-size: 0.9rem; font-weight: 600; display: block; margin-bottom: 0.6rem; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                        <span>📝</span> 自定义导出文件名：
+                    </label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="text" id="export-filename-input"
+                            style="flex: 1; padding: 0.55rem 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem; font-family: inherit; font-weight: 500;"
+                            placeholder="输入文件名">
+                        <span
+                            style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); background: #f1f5f9; padding: 0.55rem 0.75rem; border-radius: 6px; border: 1px solid var(--border-color);">.xlsx</span>
+                    </div>
+                    <span
+                        style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-top: 0.4rem; font-style: italic;">默认为:
+                        亚马逊汇总表-${month}月</span>
+                </div>
+
+                <a id="download-btn" class="primary-btn download-btn">💾 确认导出并下载汇总表 (.xlsx)</a>
+                <button id="reset-btn-result" class="secondary-btn"
+                    onclick="document.getElementById('reset-btn').click()">🔄 处理下一批 PDF</button>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>国内运费账单处理工具</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            padding: 20px;
+            color: #2c3e50;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .section h2 {
+            color: #34495e;
+            margin-bottom: 20px;
+            font-size: 18px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .file-box {
+            border: 2px dashed #bdc3c7;
+            border-radius: 8px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            background: #fff;
+            position: relative;
+            outline: none;
+        }
+
+        .file-box:hover {
+            border-color: #3498db;
+            background: #f8f9fa;
+        }
+
+        .file-box.loaded {
+            border-color: #27ae60;
+            background: #e8f8f5;
+        }
+
+        .file-box.dragover {
+            border-color: #3498db;
+            background: #e3f0fc;
+            border-style: solid;
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+            transform: scale(1.02);
+        }
+
+        .file-box input {
+            display: none;
+        }
+
+        .file-box .icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .file-box .title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: #34495e;
+        }
+
+        .file-box .desc {
+            font-size: 12px;
+            color: #7f8c8d;
+            line-height: 1.4;
+        }
+
+        .file-box .filename {
+            margin-top: 15px;
+            font-size: 13px;
+            color: #27ae60;
+            word-break: break-all;
+            display: none;
+            background: rgba(39, 174, 96, 0.1);
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+
+        .btn-area {
+            text-align: center;
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 35px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(52, 152, 219, 0.2);
+        }
+
+        .btn:hover:not(:disabled) {
+            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2);
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #219a52;
+            box-shadow: 0 6px 12px rgba(39, 174, 96, 0.3);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .stat-card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid #eee;
+        }
+
+        .stat-card h3 {
+            font-size: 13px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .stat-card.match .value {
+            color: #27ae60;
+        }
+
+        .log-area {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            max-height: 250px;
+            overflow-y: auto;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            border-left: 3px solid #3498db;
+            padding-left: 10px;
+        }
+
+        .log-entry.error {
+            border-color: #e74c3c;
+            color: #ff7675;
+        }
+
+        .log-entry.success {
+            border-color: #27ae60;
+            color: #55efc4;
+        }
+
+        .log-entry.info {
+            border-color: #3498db;
+            color: #81ecec;
+        }
+
+        .preview-section {
+            margin-top: 25px;
+            display: none;
+        }
+
+        .table-container {
+            max-height: 400px;
+            overflow: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            background: #3498db;
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            color: #34495e;
+        }
+
+        tr:hover td {
+            background: #f1f8ff;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>📊 国内运费账单处理工具</h1>
+
+        <div class="section">
+            <h2>📁 第一步：上传数据文件 (支持多选)</h2>
+            <div class="upload-grid">
+                <!-- File A -->
+                <div class="file-box" id="boxA" ondragover="dragOver(event)" ondragleave="dragLeave(event)"
+                    ondrop="dropFile(event, 'A')" onclick="document.getElementById('inputA').click()">
+                    <span class="icon">📦</span>
+                    <div class="title">仓库发货-自建仓</div>
+                    <div class="desc">平台单号 / 店铺 / 运单号 / 出库仓库<br>(可多选，支持拖拽上传)</div>
+                    <input type="file" id="inputA" multiple accept=".xlsx,.xls">
+                    <div class="filename" id="infoA">未选择文件</div>
+                </div>
+
+                <!-- File B -->
+                <div class="file-box" id="boxB" ondragover="dragOver(event)" ondragleave="dragLeave(event)"
+                    ondrop="dropFile(event, 'B')" onclick="document.getElementById('inputB').click()">
+                    <span class="icon">💰</span>
+                    <div class="title">4px账单</div>
+                    <div class="desc">物流单号 / 总金额<br>(可多选，支持拖拽上传)</div>
+                    <input type="file" id="inputB" multiple accept=".xlsx,.xls">
+                    <div class="filename" id="infoB">未选择文件</div>
+                </div>
+
+                <!-- File C -->
+                <div class="file-box" id="boxC" ondragover="dragOver(event)" ondragleave="dragLeave(event)"
+                    ondrop="dropFile(event, 'C')" onclick="document.getElementById('inputC').click()">
+                    <span class="icon">📝</span>
+                    <div class="title">输出结果模板</div>
+                    <div class="desc">燕文+4px模板文件<br>(单选，支持拖拽上传)</div>
+                    <input type="file" id="inputC" accept=".xlsx,.xls">
+                    <div class="filename" id="infoC">未选择文件</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <h3>总待处理行数</h3>
+                <div class="value" id="countA">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>总账单索引数</h3>
+                <div class="value" id="countB">0</div>
+            </div>
+            <div class="stat-card match">
+                <h3>匹配成功记录</h3>
+                <div class="value" id="countMatch">0</div>
+            </div>
+        </div>
+
+        <div class="btn-area">
+            <button class="btn" id="processBtn" disabled onclick="processData()">⚙️ 开始处理数据</button>
+            <button class="btn btn-success" id="exportBtn" disabled onclick="exportData()">💾 导出结果表格</button>
+            <button class="btn" style="background:#95a5a6" onclick="location.reload()">🔄 重置清空</button>
+        </div>
+
+        <div class="preview-section" id="previewSection">
+            <div class="section">
+                <h2>👀 数据预览 (前20条)</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>运单号</th>
+                                <th>实际应付金额</th>
+                                <th>店铺</th>
+                                <th>发货仓库</th>
+                                <th>平台单号</th>
+                            </tr>
+                        </thead>
+                        <tbody id="previewBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-area" id="logArea"></div>
+    </div>
+
+    <script>
+        let allDataA = [];          // 仓库发货原始数据
+        let globalBMap = new Map(); // 物流单号 → 总金额
+        let allBData = [];          // 4px账单原始数据: [{客户单号, 物流单号, 总金额}]
+        let aMap = new Map();       // 运单号 → {shop, warehouse, platformNo}
+        let templateWorkbook = null;
+        let finalResultRows = [];
+
+        // 阻止页面级默认拖拽行为（防止浏览器打开文件）
+        document.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); });
+        document.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); });
+
+        // 拖拽悬停高亮
+        function dragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.classList.add('dragover');
+        }
+
+        function dragLeave(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.classList.remove('dragover');
+        }
+
+        // 拖拽放下处理
+        function dropFile(e, type) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFiles(type, files);
+            }
+        }
+
+        // 监听点击上传
+        ['A', 'B', 'C'].forEach(type => {
+            const input = document.getElementById('input' + type);
+            input.onchange = e => handleFiles(type, e.target.files);
+        });
+
+        function addLog(msg, type = 'info') {
+            const logArea = document.getElementById('logArea');
+            logArea.style.display = 'block';
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + type;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logArea.appendChild(entry);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        async function handleFiles(type, files) {
+            if (!files.length) return;
+
+            const box = document.getElementById('box' + type);
+            const info = document.getElementById('info' + type);
+
+            addLog(`开始读取 ${type} 类文件，共 ${files.length} 个...`);
+
+            try {
+                if (type === 'A') {
+                    allDataA = [];
+                    for (let f of files) {
+                        const data = await readExcel(f);
+                        const sheet = data.Sheets[data.SheetNames[0]];
+                        // 使用数组模式读取（不用 defval，避免覆盖数值单元格）
+                        const arr = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                        if (arr.length < 2) {
+                            addLog(`  - ${f.name} 无数据行，跳过`, 'error');
+                            continue;
+                        }
+                        const headerRow = arr[0].map(h => String(h ?? '').trim());
+                        const colMap = {};
+                        for (let i = 0; i < headerRow.length; i++) {
+                            const h = headerRow[i];
+                            if (h.includes('运单号')) colMap.trackNo = i;
+                            if (h.includes('平台单号')) colMap.platformNo = i;
+                            if (h === '店铺') colMap.shop = i;
+                            if (h.includes('出库仓库')) colMap.warehouse = i;
+                        }
+                        if (colMap.trackNo === undefined) {
+                            addLog(`  - ${f.name} 未找到"运单号"列，跳过。表头: ${headerRow.slice(0, 10).join(', ')}...`, 'error');
+                            continue;
+                        }
+                        addLog(`  - ${f.name} 定位列: 运单号=col${colMap.trackNo + 1}, 平台单号=col${(colMap.platformNo ?? -1) + 1}, 店铺=col${(colMap.shop ?? -1) + 1}, 出库仓库=col${(colMap.warehouse ?? -1) + 1}`);
+                        for (let r = 1; r < arr.length; r++) {
+                            const row = arr[r];
+                            allDataA.push({
+                                _trackNo: String(row[colMap.trackNo] ?? '').trim(),
+                                platformNo: colMap.platformNo !== undefined ? (row[colMap.platformNo] ?? '') : '',
+                                shop: colMap.shop !== undefined ? (row[colMap.shop] ?? '') : '',
+                                warehouse: colMap.warehouse !== undefined ? (row[colMap.warehouse] ?? '') : ''
+                            });
+                        }
+                        addLog(`  - ${f.name} 加载完成 (${arr.length - 1} 行)`);
+                    }
+                    document.getElementById('countA').textContent = allDataA.length;
+                } else if (type === 'B') {
+                    globalBMap.clear();
+                    allBData = [];
+                    for (let f of files) {
+                        const data = await readExcel(f);
+                        const sheet = data.Sheets[data.SheetNames[0]];
+                        const arr = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                        if (arr.length < 2) {
+                            addLog(`  - ${f.name} 无数据行，跳过`, 'error');
+                            continue;
+                        }
+                        const headerRow = arr[0].map(h => String(h ?? '').trim());
+                        let colCustomerNo = -1;
+                        let colTrackNo = -1;
+                        let colAmount = -1;
+                        for (let i = 0; i < headerRow.length; i++) {
+                            const h = headerRow[i];
+                            if (h.includes('客户单号')) colCustomerNo = i;
+                            if (h.includes('物流单号')) colTrackNo = i;
+                            if (h.includes('总金额')) colAmount = i;
+                        }
+                        if (colTrackNo === -1 || colAmount === -1) {
+                            addLog(`  - ${f.name} 未找到物流单号/总金额列，跳过。表头: ${headerRow.slice(0, 10).join(', ')}...`, 'error');
+                            continue;
+                        }
+                        addLog(`  - ${f.name} 定位列: 客户单号=col${colCustomerNo + 1}, 物流单号=col${colTrackNo + 1}, 总金额=col${colAmount + 1}`);
+                        let rowCount = 0;
+                        let zeroWarnCount = 0;
+                        for (let r = 1; r < arr.length; r++) {
+                            const row = arr[r];
+                            const trackNo = String(row[colTrackNo] ?? '').trim();
+                            if (!trackNo) continue;
+                            const raw = row[colAmount];
+                            let amount = 0;
+                            if (typeof raw === 'number') {
+                                amount = raw;
+                            } else if (typeof raw === 'string') {
+                                amount = parseFloat(raw.replace(/[^0-9.\-]/g, '')) || 0;
+                            } else if (raw !== undefined && raw !== null) {
+                                amount = parseFloat(String(raw)) || 0;
+                            }
+                            if (amount === 0 && raw !== 0 && raw !== '0' && raw !== undefined && raw !== null) {
+                                zeroWarnCount++;
+                                if (zeroWarnCount <= 3) {
+                                    addLog(`  [B] ⚠️ 金额解析异常: raw="${raw}" type=${typeof raw}`, 'info');
+                                }
+                            }
+                            const existing = globalBMap.get(trackNo) || 0;
+                            globalBMap.set(trackNo, existing + amount);
+                            const customerNo = colCustomerNo >= 0 ? String(row[colCustomerNo] ?? '').trim() : '';
+                            allBData.push({ trackNo, amount, customerNo });
+                            rowCount++;
+                        }
+                        addLog(`  - ${f.name} 加载完成，有效记录 ${rowCount} 行${zeroWarnCount > 0 ? '，金额解析异常 ' + zeroWarnCount + ' 行' : ''}`);
+                    }
+                    document.getElementById('countB').textContent = globalBMap.size;
+                    if (globalBMap.size > 0) {
+                        const sample = [...globalBMap.entries()].slice(0, 5);
+                        addLog(`  [B] Map 样本(前5): ${JSON.stringify(sample)}`, 'success');
+                    } else {
+                        addLog(`  [B] ⚠️ Map 为空！请检查4px账单文件格式`, 'error');
+                    }
+                } else if (type === 'C') {
+                    templateWorkbook = await readExcel(files[0]);
+                    addLog(`[C] 模板 ${files[0].name} 加载成功`, 'success');
+                }
+
+                box.classList.add('loaded');
+                info.style.display = 'block';
+                info.textContent = files.length > 1 ? `已加载 ${files.length} 个文件` : files[0].name;
+
+                checkReady();
+            } catch (err) {
+                addLog(`读取失败: ${err.message}`, 'error');
+                console.error(err);
+            }
+        }
+
+        function readExcel(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const wb = XLSX.read(data, { type: 'array' });
+                        resolve(wb);
+                    } catch (err) { reject(err); }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function checkReady() {
+            if (allDataA.length > 0 && globalBMap.size > 0 && templateWorkbook) {
+                document.getElementById('processBtn').disabled = false;
+                document.getElementById('stats').style.display = 'grid';
+            }
+        }
+
+        function processData() {
+            addLog('执行数据匹配逻辑...（以4px账单为基准）', 'info');
+            finalResultRows = [];
+
+            // 步骤1: 将仓库发货表(A)构建为运单号→详细信息的Map（只取第一个匹配）
+            aMap.clear();
+            let aEmptyCount = 0;
+            allDataA.forEach(row => {
+                const trackNo = String(row._trackNo ?? '').trim();
+                if (!trackNo) { aEmptyCount++; return; }
+                if (!aMap.has(trackNo)) {
+                    aMap.set(trackNo, {
+                        platformNo: row.platformNo || '',
+                        shop: row.shop || '',
+                        warehouse: row.warehouse || ''
+                    });
+                }
+            });
+            addLog(`仓库发货表索引构建完成: ${aMap.size} 个唯一运单号${aEmptyCount > 0 ? '，跳过 ' + aEmptyCount + ' 条空运单号' : ''}`);
+
+            // 步骤2: 遍历4px账单(B)所有数据，匹配A补充信息
+            let matchCount = 0;
+            let noMatchCount = 0;
+            const body = document.getElementById('previewBody');
+            body.innerHTML = '';
+
+            allBData.forEach((bRow, index) => {
+                const aInfo = aMap.get(bRow.trackNo);
+                const shop = aInfo ? aInfo.shop : '';
+                const warehouse = aInfo ? aInfo.warehouse : '';
+                const platformNo = aInfo ? aInfo.platformNo : '';
+
+                if (aInfo) {
+                    matchCount++;
+                } else {
+                    noMatchCount++;
+                }
+
+                // 二维数组：[客户单号, 客户单号, 运单号, 实际应付金额, 店铺, 发货仓库, 平台单号, 归属]
+                finalResultRows.push([
+                    bRow.customerNo,   // 客户单号
+                    bRow.customerNo,   // 客户单号（模板两列）
+                    bRow.trackNo,      // 运单号
+                    bRow.amount,       // 实际应付金额
+                    shop,              // 店铺（可能为空）
+                    warehouse,         // 发货仓库（可能为空）
+                    platformNo,        // 平台单号（可能为空）
+                    ''                 // 归属
+                ]);
+
+                if (index < 20) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${bRow.trackNo}</td>
+                        <td style="font-weight:bold; color:${aInfo ? '#27ae60' : '#e74c3c'}">${bRow.amount.toFixed(2)}</td>
+                        <td>${shop || '(未匹配)'}</td>
+                        <td>${warehouse || '(未匹配)'}</td>
+                        <td>${platformNo || '(未匹配)'}</td>
+                    `;
+                    body.appendChild(tr);
+                }
+            });
+
+            document.getElementById('countMatch').textContent = matchCount;
+            document.getElementById('previewSection').style.display = 'block';
+            document.getElementById('exportBtn').disabled = finalResultRows.length > 0 ? false : true;
+            addLog(`处理完成！4px账单共 ${allBData.length} 条，匹配到仓库发货 ${matchCount} 条，未匹配 ${noMatchCount} 条`, 'success');
+            if (noMatchCount > 0) {
+                addLog(`  - 未匹配的 ${noMatchCount} 条记录在结果中店铺/仓库/平台单号留空`, 'info');
+            }
+        }
+
+        function exportData() {
+            if (finalResultRows.length === 0) {
+                addLog('⚠️ 无数据可导出！', 'error');
+                return;
+            }
+            addLog(`正在导出 ${finalResultRows.length} 条记录到 Excel...`, 'info');
+            try {
+                const wsName = templateWorkbook.SheetNames[0];
+                const ws = templateWorkbook.Sheets[wsName];
+
+                // 清空模板中 A2 往下的旧数据区域（保留表头行）
+                const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+                for (let R = range.s.r + 1; R <= range.e.r; R++) {
+                    for (let C = range.s.c; C <= range.e.c; C++) {
+                        const addr = XLSX.utils.encode_cell({ r: R, c: C });
+                        if (ws[addr]) delete ws[addr];
+                    }
+                }
+
+                // finalResultRows 是二维数组，使用 sheet_add_aoa 写入（从 A2 开始）
+                XLSX.utils.sheet_add_aoa(ws, finalResultRows, { origin: 'A2' });
+
+                const date = new Date().toISOString().split('T')[0];
+                XLSX.writeFile(templateWorkbook, `国内运费处理结果_${date}.xlsx`);
+                addLog(`文件已导出成功！共 ${finalResultRows.length} 条记录`, 'success');
+            } catch (err) {
+                addLog(`导出失败: ${err.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>泽坤财务工具中台 - Premium Hub</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-glow: rgba(79, 70, 229, 0.2);
+            --bg-main: #f8fafc;
+            --sidebar-bg: rgba(255, 255, 255, 0.85);
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --glass-border: rgba(0, 0, 0, 0.08);
+            --success: #10b981;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-main);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Glassmorphism Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 40px 24px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .logo-container {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 16px;
+        }
+
+        .logo-img {
+            width: 72px;
+            height: 72px;
+            border-radius: 20px;
+            object-fit: cover;
+            border: 2px solid var(--glass-border);
+            box-shadow: 0 0 20px var(--primary-glow);
+        }
+
+        .sidebar-title {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #1e293b, #475569);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sidebar-version {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-weight: 500;
+            opacity: 0.7;
+        }
+
+        .nav-menu {
+            flex: 1;
+            padding: 20px 12px;
+            overflow-y: auto;
+        }
+
+        .nav-group {
+            padding: 24px 16px 8px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .nav-item {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-muted);
+            text-decoration: none;
+            border-radius: 12px;
+            margin-bottom: 4px;
+            transition: all 0.3s;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .nav-item:hover {
+            background: rgba(79, 70, 229, 0.08);
+            color: var(--primary);
+            transform: translateX(4px);
+        }
+
+        .nav-item.active {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 8px 16px -4px var(--primary-glow);
+        }
+
+        .nav-item i {
+            font-size: 18px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .top-bar {
+            height: 72px;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            padding: 0 40px;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .breadcrumb {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .breadcrumb span {
+            color: var(--text-main);
+            font-weight: 700;
+        }
+
+        .lan-info {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Views */
+        #view-home {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #view-iframe {
+            flex: 1;
+            display: none;
+            background: #fff;
+            border-radius: 24px 0 0 0;
+            overflow: hidden;
+            margin-top: 10px;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.05);
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .welcome-section {
+            margin-bottom: 48px;
+        }
+
+        .welcome-title {
+            font-size: 40px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 12px;
+        }
+
+        .welcome-subtitle {
+            font-size: 18px;
+            color: var(--text-muted);
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        /* Tools Grid */
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 32px;
+        }
+
+        .tool-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(8px);
+            border-radius: 24px;
+            padding: 32px;
+            border: 1px solid var(--glass-border);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 4px;
+            background: var(--primary);
+            opacity: 0;
+            transition: 0.3s;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--primary);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+        }
+
+        .tool-card:hover::before {
+            opacity: 1;
+        }
+
+        .tool-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: rgba(99, 102, 241, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        .tool-new {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            background: var(--success);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .tool-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .tool-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 24px;
+            flex: 1;
+        }
+
+        .tool-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tool-tags {
+            display: flex;
+            gap: 8px;
+        }
+
+        .tool-tag {
+            padding: 4px 12px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .btn-open {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .btn-open:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px var(--primary-glow);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.15);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0,0,0,0.25);
+        }
+
+        /* Glassmorphism Mood Card */
+        .mood-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.45));
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 24px;
+            padding: 24px 30px;
+            margin-bottom: 40px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            animation: fadeIn 0.8s ease-out;
+            max-width: 900px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .mood-card::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(79, 70, 229, 0.03) 0%, transparent 80%);
+            pointer-events: none;
+        }
+
+        .mood-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 48px 0 rgba(31, 38, 135, 0.08);
+            border-color: rgba(79, 70, 229, 0.25);
+        }
+
+        .mood-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .mood-icon {
+            font-size: 20px;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-5px) rotate(5deg); }
+        }
+
+        .mood-title {
+            color: var(--text-main);
+            font-weight: 800;
+            letter-spacing: -0.2px;
+        }
+
+        .mood-status-tag {
+            margin-left: auto;
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+        }
+
+        .status-double {
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        .status-single {
+            background: rgba(245, 158, 11, 0.12);
+            color: #d97706;
+            border: 1px solid rgba(245, 158, 11, 0.25);
+        }
+
+        .mood-content {
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 1.7;
+            color: #334155;
+            position: relative;
+            padding-left: 16px;
+            border-left: 4px solid var(--primary);
+            letter-spacing: 0.1px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header" onclick="openHome()">
+            <div class="logo-container">
+                <img src="/static/zekun.jpg" class="logo-img" alt="Logo" onerror="this.src='https://ui-avatars.com/api/?name=ZK&background=6366f1&color=fff'">
+            </div>
+            <div class="sidebar-title">泽坤财务中心</div>
+            <div class="sidebar-version">Premium Hub v2.0</div>
+        </div>
+        <div class="nav-menu">
+            <div class="nav-group">核心面板</div>
+            <div class="nav-item active" onclick="openHome()" id="nav-home"><span>🏠</span> 控制台首页</div>
+
+            <div class="nav-group">财务核算</div>
+            <div class="nav-item" onclick="openTool('/pdf-analyze', '结算报表解析', this)"><span>📊</span> 亚马逊结算解析</div>
+            <div class="nav-item" onclick="openTool('/收款汇总表处理工具v1.0.html', '收款汇总处理', this)"><span>💰</span> 收款汇总汇总</div>
+
+            <div class="nav-group">物流核算</div>
+            <div class="nav-item" onclick="openTool('/物流账单处理工具v1.0.html', '物流账单处理', this)"><span>📦</span> 物流对账工具</div>
+            <div class="nav-item" onclick="openTool('/国内运费账单处理工具v1.0.html', '国内运费处理', this)"><span>🚚</span> 国内运费对账</div>
+        </div>
+        
+        <div style="padding: 24px; border-top: 1px solid var(--glass-border);">
+            <div class="lan-info">
+                <span id="lan-status">●</span> LAN: <span id="lan-ip">Loading...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="breadcrumb">泽坤财务中心 > <span id="current-page">控制台首页</span></div>
+            <div style="display: flex; gap: 16px; align-items: center;">
+                <span style="font-size: 13px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 6px;">
+                    📅 <span id="live-clock">2026年5月25日 星期一 14:41:18</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Home View -->
+        <div id="view-home">
+            <div class="welcome-section">
+                <h1 class="welcome-title">欢迎回来</h1>
+                <p class="welcome-subtitle">这里是泽坤财务工具中台，您的自动化财务处理专家。所有的工具已集成，支持局域网内一键访问。</p>
+            </div>
+
+            <!-- 打工人心情语录与大小周状态 -->
+            <div class="mood-card" id="worker-mood-card">
+                <div class="mood-header">
+                    <span class="mood-icon">💬</span>
+                    <span class="mood-title">打工人今日心声</span>
+                    <span id="mood-week-status" class="mood-status-tag status-double">计算中...</span>
+                </div>
+                <p id="mood-text" class="mood-content">正在连接脑电波，读取今日打工人心情...</p>
+            </div>
+
+            <!-- Tools Grid -->
+            <div class="tools-grid">
+                <!-- PDF Analyze -->
+                <div class="tool-card">
+                    <div class="tool-new">AI Power</div>
+                    <div class="tool-icon" style="background: rgba(99, 102, 241, 0.1); color: #6366f1;">🧾</div>
+                    <div class="tool-title">亚马逊 PDF 解析</div>
+                    <p class="tool-desc">深度解析 Amazon PDF 结算报告，利用 DeepSeek 自动提取收支明细，一键生成标准化财务汇总表。</p>
+                    <div class="tool-footer">
+                        <div class="tool-tags">
+                            <span class="tool-tag">DeepSeek</span>
+                            <span class="tool-tag">Excel</span>
+                        </div>
+                        <button onclick="openTool('/pdf-analyze', '亚马逊结算解析')" class="btn-open">立即启动</button>
+                    </div>
+                </div>
+
+                <!-- 收款汇总表 -->
+                <div class="tool-card">
+                    <div class="tool-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">💰</div>
+                    <div class="tool-title">收款汇总处理</div>
+                    <p class="tool-desc">集成万里汇、PayPal及Shopify多渠道数据，自动匹配汇率并生成月度收款明细汇总。</p>
+                    <div class="tool-footer">
+                        <div class="tool-tags">
+                            <span class="tool-tag">多渠道</span>
+                            <span class="tool-tag">核算</span>
+                        </div>
+                        <button onclick="openTool('/收款汇总表处理工具v1.0.html', '收款汇总汇总')" class="btn-open">立即启动</button>
+                    </div>
+                </div>
+
+                <!-- 国内运费 -->
+                <div class="tool-card">
+                    <div class="tool-new">Popular</div>
+                    <div class="tool-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">🚚</div>
+                    <div class="tool-title">国内运费对账</div>
+                    <p class="tool-desc">自动化匹配自建仓发货记录与 4PX 运费账单，精准核算每一笔物流支出，解决对账难题。</p>
+                    <div class="tool-footer">
+                        <div class="tool-tags">
+                            <span class="tool-tag">4PX</span>
+                            <span class="tool-tag">自动化</span>
+                        </div>
+                        <button onclick="openTool('/国内运费账单处理工具v1.0.html', '国内运费对账')" class="btn-open">立即启动</button>
+                    </div>
+                </div>
+
+                <!-- 物流账单 -->
+                <div class="tool-card">
+                    <div class="tool-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">📦</div>
+                    <div class="tool-title">物流账单处理</div>
+                    <p class="tool-desc">处理月度全球物流大账单，支持运费自动分摊与站点费用拆分，确保核算无差错。</p>
+                    <div class="tool-footer">
+                        <div class="tool-tags">
+                            <span class="tool-tag">对账</span>
+                            <span class="tool-tag">全球</span>
+                        </div>
+                        <button onclick="openTool('/物流账单处理工具v1.0.html', '物流账单处理')" class="btn-open">立即启动</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Iframe View -->
+        <div id="view-iframe">
+            <iframe id="tool-frame" src=""></iframe>
+        </div>
+    </div>
+
+    <script>
+        function openTool(url, name, navEl) {
+            document.getElementById('view-home').style.display = 'none';
+            document.getElementById('view-iframe').style.display = 'block';
+            document.getElementById('tool-frame').src = url;
+            document.getElementById('current-page').innerText = name;
+
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            if (navEl) {
+                navEl.classList.add('active');
+            } else {
+                const items = document.querySelectorAll('.nav-item');
+                items.forEach(item => {
+                    if (item.innerText.includes(name)) item.classList.add('active');
+                });
+            }
+        }
+
+        function openHome() {
+            document.getElementById('view-home').style.display = 'block';
+            document.getElementById('view-iframe').style.display = 'none';
+            document.getElementById('tool-frame').src = '';
+            document.getElementById('current-page').innerText = '控制台首页';
+
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById('nav-home').classList.add('active');
+        }
+
+        // Live Clock (显示完整日期、星期和时间)
+        function updateLiveClock() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            const date = now.getDate();
+            
+            const dayOfWeekMap = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+            const dayOfWeekStr = dayOfWeekMap[now.getDay()];
+            
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            
+            const clockStr = `${year}年${month}月${date}日 ${dayOfWeekStr} ${hours}:${minutes}:${seconds}`;
+            document.getElementById('live-clock').innerText = clockStr;
+        }
+        updateLiveClock();
+        setInterval(updateLiveClock, 1000);
+
+        // 获取打工人心情语录与大小周状态
+        async function fetchWorkerMood() {
+            try {
+                const res = await fetch('/api/worker-mood');
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('mood-text').innerText = data.mood;
+                    
+                    const badge = document.getElementById('mood-week-status');
+                    if (data.weekStatus === '双休') {
+                        badge.innerText = '本周双休';
+                        badge.className = 'mood-status-tag status-double';
+                    } else {
+                        badge.innerText = '本周单休 (周六需上班)';
+                        badge.className = 'mood-status-tag status-single';
+                    }
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (e) {
+                console.error("Failed to load worker mood:", e);
+                document.getElementById('mood-text').innerText = "今天搬砖辛苦了！保持快乐，努力搞钱！";
+                document.getElementById('mood-week-status').innerText = "大小周调整中";
+                document.getElementById('mood-week-status').className = 'mood-status-tag status-double';
+            }
+        }
+        fetchWorkerMood();
+
+        // Fetch LAN IP
+        async function updateLanInfo() {
+            try {
+                // We can't easily get the server's IP from client JS without an API
+                // So let's assume the server will provide it or we use window.location.host
+                const host = window.location.host;
+                document.getElementById('lan-ip').innerText = host;
+            } catch (e) {
+                document.getElementById('lan-ip').innerText = 'Unknown';
+            }
+        }
+        updateLanInfo();
+    </script>
+</body>
+
+</html>

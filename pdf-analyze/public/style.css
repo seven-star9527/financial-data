@@ -1,0 +1,840 @@
+/* Append to existing style.css */
+:root {
+    --bg-color: #f8fafc;
+    --card-bg: #ffffff;
+    --primary-color: #4f46e5;
+    --primary-hover: #4338ca;
+    --text-main: #1e293b;
+    --text-secondary: #64748b;
+    --border-color: #e2e8f0;
+    --success-color: #10b981;
+    --error-color: #ef4444;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 2rem;
+}
+
+.container {
+    max-width: 800px;
+    width: 100%;
+    background: var(--card-bg);
+    border-radius: 20px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+    padding: 3rem;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+header h1 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+header p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+/* Rate Section — compact single-line */
+.rate-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f1f5f9;
+    padding: 0.7rem 1rem;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+.rate-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.rate-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-main);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.rate-select {
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: #fff;
+    min-width: 120px;
+    flex-shrink: 0;
+}
+
+.rate-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.rate-eq {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    flex-shrink: 0;
+}
+
+.rate-input {
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: 'Tahoma', monospace;
+    font-weight: 600;
+    color: var(--primary-color);
+    background: #fff;
+    width: 110px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.rate-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+}
+
+.rate-input:disabled {
+    background: #f8fafc;
+    color: var(--text-secondary);
+}
+
+.rate-hint {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* Hide number input spinners */
+.rate-input::-webkit-outer-spin-button,
+.rate-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+}
+
+.rate-input[type=number] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* Old rate display panel: no longer used but keeping for reference */
+.rates-display {
+    display: none;
+}
+
+.rates-grid {
+    display: none;
+}
+
+.rate-item {
+    display: none;
+}
+
+.secondary-btn {
+    padding: 0.6rem 1.2rem;
+    background-color: white;
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.secondary-btn:hover {
+    background-color: #f8fafc;
+    border-color: var(--text-secondary);
+}
+
+.secondary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.upload-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.upload-card {
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: #fafafa;
+}
+
+.upload-card:hover,
+.upload-card.dragover {
+    border-color: var(--primary-color);
+    background-color: #eff6ff;
+}
+
+.upload-card .icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.upload-card h3 {
+    font-size: 1.05rem;
+    margin-bottom: 0.5rem;
+}
+
+.upload-card p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.upload-card .browse {
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.file-name {
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: var(--primary-color);
+    font-weight: 500;
+    word-break: break-all;
+}
+
+.primary-btn {
+    width: 100%;
+    padding: 1rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.primary-btn:hover {
+    background-color: var(--primary-hover);
+}
+
+.primary-btn:disabled {
+    background-color: #a5b4fc;
+    cursor: not-allowed;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Progress Section */
+#progress-container {
+    margin-top: 2rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.status-header h3 {
+    font-size: 1rem;
+}
+
+#status-text {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.progress-bar-bg {
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+.log-list {
+    list-style: none;
+    max-height: 150px;
+    overflow-y: auto;
+    font-size: 0.85rem;
+}
+
+.log-list li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f1f5f9;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.log-list li.success {
+    color: #059669;
+}
+
+.log-list li.error {
+    color: var(--error-color);
+}
+
+/* Result Section */
+#result-container {
+    margin-top: 2rem;
+    text-align: center;
+    padding: 2rem;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 12px;
+}
+
+.success-message .icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.success-message h3 {
+    color: #065f46;
+    margin-bottom: 0.5rem;
+}
+
+.success-message p {
+    color: #047857;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.download-btn {
+    display: inline-block;
+    text-decoration: none;
+    background-color: var(--success-color);
+}
+
+.download-btn:hover {
+    background-color: #059669;
+}
+
+/* Config Section Styles */
+.config-section {
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.config-header h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.mapping-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.mapping-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.mapping-row input {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+
+.mapping-row input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+}
+
+.remove-btn {
+    background: #fee2e2;
+    color: var(--error-color);
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.remove-btn:hover {
+    background: #fecaca;
+}
+
+.config-tip {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.secondary-btn.small {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+}
+
+.upload-section.single-card {
+    grid-template-columns: 1fr;
+}
+
+/* Action bar: 主按钮 + 重置按钮并排 */
+.action-bar {
+    display: flex;
+    gap: 0.75rem;
+    align-items: stretch;
+    margin-bottom: 0;
+}
+
+.action-bar .primary-btn {
+    flex: 1;
+}
+
+.action-bar .reset-btn {
+    flex-shrink: 0;
+    padding: 1rem 1.5rem;
+    font-size: 0.95rem;
+    white-space: nowrap;
+}
+
+/* 处理完成区的下载和重置按钮布局 */
+#result-container .download-btn {
+    display: block;
+    margin-bottom: 0.75rem;
+}
+
+#result-container .secondary-btn {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 0.95rem;
+}
+
+/* Data Table Styles */
+.data-table {
+    margin-top: 1rem;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.data-table th {
+    background-color: #f8fafc;
+    padding: 0.75rem;
+    text-align: left;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.data-table tr:hover {
+    background-color: #f1f5f9;
+}
+
+.data-table td {
+    font-size: 0.9rem;
+}
+
+#monthly-result-container {
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- 数据预览与宽布局扩展样式 --- */
+.container {
+    transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.container.wide-container {
+    max-width: 1400px;
+}
+
+/* 预览表格特定样式 */
+.preview-section .data-table th {
+    background-color: #f8fafc;
+    padding: 0.85rem 1rem;
+    text-align: center;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.preview-section .data-table th:last-child {
+    border-right: none;
+}
+
+.preview-section .data-table td {
+    padding: 0.75rem 1rem;
+    text-align: center;
+    border-bottom: 1px solid #f1f5f9;
+    border-right: 1px solid #f1f5f9;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.preview-section .data-table td:last-child {
+    border-right: none;
+}
+
+.preview-section .data-table tr:nth-child(even) {
+    background-color: #f8fafc;
+}
+
+.preview-section .data-table tr:hover {
+    background-color: #f1f5f9;
+}
+
+/* 数字单元格等宽字体样式 */
+.num-cell {
+    font-family: 'Tahoma', monospace;
+    font-weight: 500;
+    text-align: right !important;
+}
+
+.num-cell-negative {
+    font-family: 'Tahoma', monospace;
+    font-weight: 700;
+    color: var(--error-color);
+    text-align: right !important;
+}
+
+/* =========================================================================
+   单一入口下拉气泡、文件分析列表、温馨咖啡倒计时新增样式
+   ========================================================================= */
+
+/* 精巧的下拉分流气泡菜单 */
+.upload-menu-popup {
+    position: absolute;
+    top: 65%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    width: 260px;
+    z-index: 1000;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    animation: popupFadeIn 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+@keyframes popupFadeIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.95); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+.upload-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.upload-menu-item:hover {
+    background: rgba(79, 70, 229, 0.08);
+}
+
+.upload-menu-item .menu-icon {
+    font-size: 1.4rem;
+}
+
+.upload-menu-item .menu-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.upload-menu-item .menu-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.upload-menu-item .menu-desc {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+/* 待分析列表容器 */
+.file-list-container {
+    margin-top: 1.5rem;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.5));
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 1.2rem;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.01), 0 4px 12px rgba(0, 0, 0, 0.01);
+    animation: fadeIn 0.4s ease-out;
+}
+
+.file-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.6rem;
+    margin-bottom: 0.6rem;
+}
+
+.file-list-count-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.clear-all-btn {
+    background: transparent;
+    color: var(--error-color);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.clear-all-btn:hover {
+    background: #fee2e2;
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+.imported-file-list {
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 4px;
+}
+
+.file-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #ffffff;
+    border: 1px solid #f1f5f9;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    transition: all 0.2s ease;
+    animation: itemSlideIn 0.3s ease-out;
+}
+
+@keyframes itemSlideIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.file-item-row:hover {
+    border-color: rgba(79, 70, 229, 0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.file-item-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-main);
+    font-weight: 500;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: 80%;
+}
+
+.file-item-size {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    font-family: 'Inter', monospace;
+}
+
+.file-item-remove-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 2px 6px;
+    font-size: 1rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.file-item-remove-btn:hover {
+    color: var(--error-color);
+    background: #fee2e2;
+}
+
+/* 预计时间咖啡倒计时卡片 */
+.estimate-time-card {
+    background: linear-gradient(135deg, rgba(254, 243, 199, 0.4), rgba(253, 230, 138, 0.15));
+    border: 1px solid rgba(251, 191, 36, 0.25);
+    border-radius: 16px;
+    padding: 18px 24px;
+    margin-top: 1.2rem;
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 4px 20px rgba(251, 191, 36, 0.03);
+    animation: fadeIn 0.5s ease-out;
+}
+
+.estimate-time-card .coffee-icon {
+    font-size: 2.2rem;
+    animation: coffeeFloat 3s ease-in-out infinite;
+    user-select: none;
+}
+
+@keyframes coffeeFloat {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-4px) scale(1.05); }
+}
+
+.estimate-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: left;
+}
+
+.estimate-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #b45309;
+}
+
+.estimate-desc {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: #451a03;
+}
+
+.time-highlight {
+    font-family: 'Tahoma', monospace;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--primary-color);
+    background: rgba(79, 70, 229, 0.08);
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(79, 70, 229, 0.15);
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
+.coffee-tip {
+    font-size: 0.76rem;
+    line-height: 1.4;
+    color: #78350f;
+    opacity: 0.85;
+    font-style: italic;
+    margin-top: 2px;
+}
+
+/* --- Table Overlay & Spinner for Re-analyze --- */
+.table-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3.5px solid #dbeafe;
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    box-shadow: 0 0 10px rgba(37, 99, 235, 0.1);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
