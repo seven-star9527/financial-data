@@ -1,58 +1,14 @@
-const fs = require('fs');
-const path = require('path');
+# -*- coding: utf-8 -*-
+import os
+import re
 
-// Mock data needed from server.js
-const countryCurrencyMap = {
-    '美国': { name: '美国', currency: '美元', code: 'USD' },
-    '加拿大': { name: '加拿大', currency: '加拿大元', code: 'CAD' },
-    '墨西哥': { name: '墨西哥', currency: '墨西哥比索', code: 'MXN' },
-    '英国': { name: '英国', currency: '英镑', code: 'GBP' },
-    '德国': { name: '德国', currency: '欧元', code: 'EUR' },
-    '法国': { name: '法国', currency: '欧元', code: 'EUR' },
-    '波兰': { name: '波兰', currency: '波兰兹罗提', code: 'PLN' }
-};
+files_to_patch = [
+    os.path.join(os.path.dirname(__file__), '..', 'server.js'),
+    os.path.join(os.path.dirname(__file__), '..', '..', 'server.js'),
+    os.path.join(os.path.dirname(__file__), 'test_filename_parsing.js')
+]
 
-const countryCodeMap = {
-    'US': { name: '美国', currency: '美元', code: 'USD' },
-    'CA': { name: '加拿大', currency: '加拿大元', code: 'CAD' },
-    'MX': { name: '墨西哥', currency: '墨西哥比索', code: 'MXN' },
-    'UK': { name: '英国', currency: '英镑', code: 'GBP' },
-    'GB': { name: '英国', currency: '英镑', code: 'GBP' },
-    'DE': { name: '德国', currency: '欧元', code: 'EUR' },
-    'FR': { name: '法国', currency: '欧元', code: 'EUR' },
-    'IT': { name: '意大利', currency: '欧元', code: 'EUR' },
-    'ES': { name: '西班牙', currency: '欧元', code: 'EUR' },
-    'NL': { name: '荷兰', currency: '欧元', code: 'EUR' },
-    'BE': { name: '比利时', currency: '欧元', code: 'EUR' },
-    'AT': { name: '奥地利', currency: '欧元', code: 'EUR' },
-    'GR': { name: '希腊', currency: '欧元', code: 'EUR' },
-    'IE': { name: '爱尔兰', currency: '欧元', code: 'EUR' },
-    'AU': { name: '澳大利亚', currency: '澳大利亚元', code: 'AUD' },
-    'JP': { name: '日本', currency: '日元', code: 'JPY' },
-    'SE': { name: '瑞典', currency: '瑞典克朗', code: 'SEK' },
-    'PL': { name: '波兰', currency: '波兰兹罗提', code: 'PLN' },
-    'TR': { name: '土耳其', currency: '土耳其里拉', code: 'TRY' },
-    'SA': { name: '沙特', currency: '沙特里亚尔', code: 'SAR' },
-    'AE': { name: '阿联酋', currency: '阿联酋迪拉姆', code: 'AED' },
-    'IN': { name: '印度', currency: '印度卢比', code: 'INR' },
-    'SG': { name: '新加坡', currency: '新加坡元', code: 'SGD' },
-    'HK': { name: '港币', currency: '港币', code: 'HKD' },
-    'BR': { name: '巴西', currency: '巴西雷亚尔', code: 'BRL' },
-    'TH': { name: '泰国', currency: '泰国铢', code: 'THB' },
-    'DK': { name: '丹麦', currency: '丹麦克朗', code: 'DKK' },
-    'PH': { name: '菲律宾', currency: '菲律宾比索', code: 'PHP' },
-    'NZ': { name: '新西兰', currency: '新西兰元', code: 'NZD' },
-    'CH': { name: '瑞士', currency: '瑞士法郎', code: 'CHF' },
-    'MY': { name: '马来西亚', currency: '林吉特', code: 'MYR' },
-    'RU': { name: '俄罗斯', currency: '卢布', code: 'RUB' },
-    'HU': { name: '匈牙利', currency: '匈牙利福林', code: 'HUF' },
-    'IL': { name: '以色列', currency: '以色列谢克尔', code: 'ILS' },
-    'VN': { name: '越南', currency: '越南盾', code: 'VND' },
-    'TW': { name: '台湾', currency: '新台币', code: 'TWD' },
-    'CZ': { name: '捷克', currency: '捷克克朗', code: 'CZK' }
-};
-
-function parseFileNameInfo(originalName) {
+new_function = r"""function parseFileNameInfo(originalName) {
     let nameWithoutExt = originalName.replace(/\.pdf$/i, '').trim();
     // 智能滤除文件开头的月份/日期前缀，如 "1月 "、"01月 "、"2026年1月 " 等以及多余空格
     nameWithoutExt = nameWithoutExt.replace(/^(?:\d{4}年)?\d{1,2}月\s*/g, '').trim();
@@ -268,73 +224,31 @@ function parseFileNameInfo(originalName) {
     }
 
     return { siteName, countryInfo, brandPrefix: siteName };
-}
+}"""
 
-function extractCurrencyFromText(text) {
-    if (!text) return null;
-    const amountMatch = text.match(/amounts?\s+in\s+([A-Z]{3})\b/i);
-    if (amountMatch) return amountMatch[1].toUpperCase();
-
-    const timezoneMatch = text.match(/Account activity from[\s\S]*?\b(PST|PDT|EST|EDT|GMT|BST|CET|CEST|JST|AEST|AEDT)\b/i);
-    if (timezoneMatch) {
-        const tz = timezoneMatch[1].toUpperCase();
-        if (tz === 'PST' || tz === 'PDT' || tz === 'EST' || tz === 'EDT') return 'USD';
-        if (tz === 'GMT' || tz === 'BST') return 'GBP';
-        if (tz === 'CET' || tz === 'CEST') return 'EUR';
-        if (tz === 'JST') return 'JPY';
-        if (tz === 'AEST' || tz === 'AEDT') return 'AUD';
-    }
-
-    if (text.includes('USD') || text.includes('U.S. Dollar')) return 'USD';
-    if (text.includes('CAD') || text.includes('Canadian Dollar')) return 'CAD';
-    if (text.includes('GBP') || text.includes('Great Britain Pound')) return 'GBP';
-    if (text.includes('EUR') || text.includes('Euro')) return 'EUR';
-    if (text.includes('PLN') || text.includes('Polish Zloty')) return 'PLN';
-    return null;
-}
-
-// RUN TEST CASES
-const testCases = [
-    { filename: "隆亚北美us2026JanMonthlyUnifiedSummary.pdf", expectedSite: "隆亚北美", expectedCountry: "美国" },
-    { filename: "隆亚北美MXN2026JanMonthlySummary.pdf", expectedSite: "隆亚北美", expectedCountry: "墨西哥" },
-    { filename: "隆亚北美CA2026JanMonthlySummary.pdf", expectedSite: "隆亚北美", expectedCountry: "加拿大" },
-    { filename: "雅甄2026JanMonthlySummary (DE).pdf", expectedSite: "雅甄德国", expectedCountry: "德国" },
-    { filename: "雅甄2026JanMonthlySummary（DE）.pdf", expectedSite: "雅甄德国", expectedCountry: "德国" },
-    { filename: "雅甄2026JanMonthlySummary (DE) (1).pdf", expectedSite: "雅甄德国", expectedCountry: "德国" },
-    { filename: "雅甄2026JanMonthlySummary (DE)(2).pdf", expectedSite: "雅甄德国", expectedCountry: "德国" },
-    { filename: "雅甄 (DE) 2026JanMonthlySummary.pdf", expectedSite: "雅甄德国", expectedCountry: "德国" },
-    { filename: "宝徕泽.pdf", expectedSite: "宝徕泽", expectedCountry: null },
-    { filename: "提香欧洲-DE3月.pdf", expectedSite: "提香欧洲", expectedCountry: "德国" },
-    { filename: "提香欧洲-ES3月.pdf", expectedSite: "提香欧洲", expectedCountry: "西班牙" },
-    { filename: "提香欧洲-FR3月.pdf", expectedSite: "提香欧洲", expectedCountry: "法国" },
-    { filename: "提香欧洲-IT3月.pdf", expectedSite: "提香欧洲", expectedCountry: "意大利" },
-    { filename: "提香欧洲-NL3月.pdf", expectedSite: "提香欧洲", expectedCountry: "荷兰" },
-    { filename: "惜抱轩FR3月.pdf", expectedSite: "惜抱轩法国", expectedCountry: "法国" },
-    { filename: "惜抱轩DE3月.pdf", expectedSite: "惜抱轩德国", expectedCountry: "德国" }
-];
-
-console.log("=== 文件名解析单元测试 ===");
-testCases.forEach((tc, idx) => {
-    const result = parseFileNameInfo(tc.filename);
-    const success = result.siteName === tc.expectedSite && (tc.expectedCountry === null ? result.countryInfo === null : result.countryInfo.name === tc.expectedCountry);
-    console.log(`[测试用例 ${idx + 1}] ${tc.filename}`);
-    console.log(`  解析站点: ${result.siteName} (期望: ${tc.expectedSite})`);
-    console.log(`  解析国家: ${result.countryInfo ? result.countryInfo.name : 'null'} (期望: ${tc.expectedCountry})`);
-    console.log(`  结果: ${success ? '✅ 通过' : '❌ 失败'}`);
-});
-
-console.log("\n=== 正文币种/时区反向推导单元测试 ===");
-const textCases = [
-    { text: "Account activity from Jan 1, 2026 00:00 PST through Jan 31, 2026 23:59 PST", expectedCurrency: "USD" },
-    { text: "All amounts in USD, unless specified", expectedCurrency: "USD" },
-    { text: "All amounts in PLN, unless specified", expectedCurrency: "PLN" },
-    { text: "Account activity from Jan 1, 2026 00:00 GMT through Jan 31, 2026 23:59 GMT", expectedCurrency: "GBP" }
-];
-
-textCases.forEach((tc, idx) => {
-    const currency = extractCurrencyFromText(tc.text);
-    const success = currency === tc.expectedCurrency;
-    console.log(`[测试用例 ${idx + 1}] Text snippet: "${tc.text.substring(0, 40)}..."`);
-    console.log(`  反推结算币种: ${currency} (期望: ${tc.expectedCurrency})`);
-    console.log(`  结果: ${success ? '✅ 通过' : '❌ 失败'}`);
-});
+for fpath in files_to_patch:
+    if not os.path.exists(fpath):
+        print(f"[WARN] File not found: {fpath}")
+        continue
+        
+    print(f"Patching: {fpath}")
+    with open(fpath, 'r', encoding='utf-8') as f:
+        content = f.read()
+        
+    norm_content = content.replace('\r\n', '\n').replace('\r', '\n')
+    
+    # Match the parseFileNameInfo function block
+    func_pattern = r'function parseFileNameInfo\(originalName\) \{[\s\S]*?return \{ siteName, countryInfo, brandPrefix: siteName \};\s*\}'
+    func_match = re.search(func_pattern, norm_content)
+    
+    if not func_match:
+        print(f"[ERR] Could not locate parseFileNameInfo in {fpath}!")
+        exit(1)
+        
+    target = func_match.group(0)
+    content = norm_content.replace(target, new_function)
+    
+    with open(fpath, 'w', encoding='utf-8') as f:
+        f.write(content)
+        
+    print(f"[OK] Patched {fpath}")

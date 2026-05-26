@@ -358,17 +358,29 @@ app.post('/api/logistics/config', (req, res) => {
     }
 });
 
-// 辅助函数：本地解析 PDF (增强版：尝试保留物理布局)
+// 辅助函数：本地解析 PDF (增强版：支持物理布局重构、字体编码异常检测及坐标提取)
 async function parsePdfLocally(filePath) {
     console.log(`Parsing PDF with layout reconstruction: ${filePath}`);
     const dataBuffer = fs.readFileSync(filePath);
+    let hasLabelLoss = false;
+    let layoutRows = [];
 
     // 自定义页面渲染函数，尝试通过坐标还原表格布局
     const options = {
         pagerender: async function (pageData) {
             const textContent = await pageData.getTextContent();
-            let lastY = null;
-            let text = '';
+            
+            // 1. 字体编码异常 (Label Loss) 检测：若大量字符被渲染成空串且显示 g_font_error 字体，标记异常
+            let gFontErrorCount = 0;
+            let totalItemsCount = textContent.items.length;
+            for (let item of textContent.items) {
+                if (item.fontName === 'g_font_error') {
+                    gFontErrorCount++;
+                }
+            }
+            if (totalItemsCount > 0 && (gFontErrorCount / totalItemsCount) > 0.3) {
+                hasLabelLoss = true;
+            }
 
             // 将文本项按照 Y 坐标（从上到下）和 X 坐标（从左到右）排序
             let items = textContent.items.sort((a, b) => {
@@ -379,22 +391,174 @@ async function parsePdfLocally(filePath) {
                 return a.transform[4] - b.transform[4];
             });
 
+            let currentYRows = [];
+            let lastY = null;
+            let currentRow = [];
+
             for (let item of items) {
-                const currentY = item.transform[5];
-                if (lastY !== null && Math.abs(lastY - currentY) > 5) {
-                    text += '\n';
-                } else if (lastY !== null) {
-                    text += '    ';
+                const y = item.transform[5];
+                const x = item.transform[4];
+                const w = item.width || 0;
+                
+                if (lastY !== null && Math.abs(lastY - y) > 5) {
+                    currentYRows.push(currentRow);
+                    currentRow = [];
                 }
-                text += item.str;
-                lastY = currentY;
+                currentRow.push({
+                    str: item.str,
+                    x: x,
+                    y: y,
+                    w: w,
+                    fontName: item.fontName
+                });
+                lastY = y;
             }
-            return text;
+            if (currentRow.length > 0) {
+                currentYRows.push(currentRow);
+            }
+
+            let pageText = '';
+            for (let rIndex = 0; rIndex < currentYRows.length; rIndex++) {
+                const rItems = currentYRows[rIndex].sort((a, b) => a.x - b.x);
+                let rText = '';
+                let lastItemX = null;
+                let lastItemW = 0;
+                for (let it of rItems) {
+                    if (lastItemX !== null) {
+                        const gap = it.x - (lastItemX + lastItemW);
+                        if (gap > 35) {
+                            rText += '    ';
+                        } else if (gap > 2) {
+                            rText += ' ';
+                        }
+                    }
+                    rText += it.str;
+                    lastItemX = it.x;
+                    lastItemW = it.w || (it.str.length * 6);
+                }
+                pageText += rText + '\n';
+                
+                layoutRows.push({
+                    y: Math.round(rItems[0].y),
+                    items: rItems.map(it => ({
+                        str: it.str,
+                        x: Math.round(it.x),
+                        w: Math.round(it.w),
+                        fontName: it.fontName || '?'
+                    }))
+                });
+            }
+            return pageText;
         }
     };
 
     const data = await pdfParse(dataBuffer, options);
-    return data.text;
+    layoutRows.sort((a, b) => b.y - a.y);
+    
+    return {
+        text: data.text,
+        layoutRows: layoutRows,
+        hasLabelLoss: hasLabelLoss
+    };
+}
+
+function extractDataByLayout(layoutRows) {
+    let income = 0;
+    let expenses = 0;
+    let adsCost = 0;
+    let taxCollected = 0;
+    let taxRefunded = 0;
+    let adsRefund = 0;
+
+    const parseNum = (str) => {
+        if (!str) return 0;
+        return parseFloat(str.replace(/,/g, '')) || 0;
+    };
+
+    // 1. 寻找顶部的汇总区域 (Y 处于 400 到 520 之间，连续 4 行)
+    let summarySequence = [];
+    for (let i = 0; i < layoutRows.length - 3; i++) {
+        let candidate = [];
+        for (let j = 0; j < 4; j++) {
+            let row = layoutRows[i + j];
+            if (row.y < 400 || row.y > 520) break;
+            let numItem = row.items.find(it => /^-?[\d,]+$/.test(it.str.trim()) && it.x > 700);
+            if (numItem) {
+                candidate.push({ row, numItem });
+            } else {
+                break;
+            }
+        }
+        if (candidate.length === 4) {
+            let uniform = true;
+            for (let k = 0; k < 3; k++) {
+                let diff = candidate[k].row.y - candidate[k+1].row.y;
+                if (diff < 5 || diff > 20) {
+                    uniform = false;
+                    break;
+                }
+            }
+            if (uniform) {
+                summarySequence = candidate;
+                break;
+            }
+        }
+    }
+
+    if (summarySequence.length === 4) {
+        income = parseNum(summarySequence[0].numItem.str);
+        expenses = parseNum(summarySequence[1].numItem.str);
+        console.log(`[Local Layout] Extracted Summary: income=${income}, expenses=${expenses}`);
+    }
+
+    // 2. 寻找广告费 (Y 处于 200 到 400 之间) - 采用双重优先级匹配
+    let adsCostCandidates = [];
+    for (let row of layoutRows) {
+        if (row.y >= 200 && row.y <= 400) {
+            let hasLabelError = row.items.some(it => (it.str.trim() === "" && it.fontName === 'g_font_error') && it.x >= 400 && it.x <= 415);
+            if (hasLabelError) {
+                let adsItem = row.items.find(it => /^-?[\d,]+$/.test(it.str.trim()) && it.x >= 650 && it.x <= 690);
+                if (adsItem) {
+                    let val = parseNum(adsItem.str);
+                    let hasAdsCode = row.items.some(it => it.str.trim() === "105" && it.x >= 350 && it.x <= 385);
+                    adsCostCandidates.push({ val, y: row.y, hasAdsCode });
+                }
+            }
+        }
+    }
+
+    if (adsCostCandidates.length > 0) {
+        let best = adsCostCandidates.find(c => c.hasAdsCode);
+        if (best) {
+            adsCost = best.val;
+            console.log(`[Local Layout] Extracted adsCost (preferred code 105): ${adsCost} at Y=${best.y}`);
+        } else {
+            adsCostCandidates.sort((a, b) => a.val - b.val); // 升序，最负的在前面
+            adsCost = adsCostCandidates[0].val;
+            console.log(`[Local Layout] Extracted adsCost (fallback largest negative): ${adsCost} at Y=${adsCostCandidates[0].y}`);
+        }
+    }
+
+    // 3. 寻找已收/退还税额 (Y 处于 50 到 150 之间)
+    for (let row of layoutRows) {
+        if (row.y >= 50 && row.y <= 150) {
+            let hasLabelError = row.items.some(it => (it.str.trim() === "" && it.fontName === 'g_font_error') && it.x >= 400 && it.x <= 415);
+            if (hasLabelError) {
+                let colItem = row.items.find(it => /^[\d,]+$/.test(it.str.trim()) && it.str.trim() !== "0" && it.x >= 730 && it.x <= 760);
+                if (colItem && taxCollected === 0) {
+                    taxCollected = parseNum(colItem.str);
+                    console.log(`[Local Layout] Extracted taxCollected: ${taxCollected} at Y=${row.y}`);
+                }
+                let refItem = row.items.find(it => /^-?[\d,]+$/.test(it.str.trim()) && it.x >= 670 && it.x <= 700);
+                if (refItem && taxRefunded === 0) {
+                    taxRefunded = parseNum(refItem.str);
+                    console.log(`[Local Layout] Extracted taxRefunded: ${taxRefunded} at Y=${row.y}`);
+                }
+            }
+        }
+    }
+
+    return { income, expenses, adsCost, taxCollected, taxRefunded, adsRefund: 0 };
 }
 
 // 辅助函数：使用 DeepSeek 提取数据
@@ -546,6 +710,20 @@ function parseFileNameInfo(originalName) {
         }
     }
 
+    // Step 1.5: 如果括号中没有找到，则扫描文件名中任何以非英文字母为边界的独立二位国家代码（如 "-DE3月" 中的 "DE"，"FR3月" 中的 "FR"）
+    if (!countryInfo) {
+        const boundaryRegex = /(?:[^a-zA-Z]|^)([A-Z]{2})(?:[^a-zA-Z]|$)/gi;
+        const boundaryMatches = nameWithoutExt.matchAll(boundaryRegex);
+        for (const m of boundaryMatches) {
+            const isoCode = m[1].toUpperCase();
+            if (countryCodeMap[isoCode]) {
+                countryInfo = countryCodeMap[isoCode];
+                countryName = countryInfo.name;
+                break;
+            }
+        }
+    }
+
     // Step 2: 提取品牌前缀，切分年份等分界线
     let prefix = nameWithoutExt;
     const yearMatch = nameWithoutExt.match(/(.*?)(20\d{2}|\d{4})/i);
@@ -676,13 +854,42 @@ function parseFileNameInfo(originalName) {
         }
     }
 
+    // 抹除任何非括号的独立二位国家代码（例如 -DE3月、FR3月等，去掉代号和可能存在的月份后缀）
+    if (countryInfo) {
+        // 根据 countryInfo.name 反查 2位国家 ISO 代码，以确保对于 EUR 国家能得到正确的 DE/FR/ES 等代号
+        let isoCode = null;
+        for (const [code, info] of Object.entries(countryCodeMap)) {
+            if (info.name === countryInfo.name) {
+                isoCode = code.toUpperCase();
+                break;
+            }
+        }
+        if (!isoCode) {
+            isoCode = countryInfo.code === 'USD' ? 'US' : (countryInfo.code === 'GBP' ? 'UK' : countryInfo.code);
+        }
+        
+        const currencyCode = countryInfo.code ? countryInfo.code.toUpperCase() : null;
+        const codesToStrip = [isoCode];
+        if (currencyCode && currencyCode !== isoCode) {
+            codesToStrip.push(currencyCode);
+        }
+
+        for (const code of codesToStrip) {
+            // 使用 lookbehind (?<![a-zA-Z]) 和 lookahead (?![a-zA-Z]) 代替 \b，因为数字（如 3月）在 \b 中会被视为单词字符
+            const nonBracketStrip = new RegExp(`[-_\\s]?(?<![a-zA-Z])${code}(?![a-zA-Z])(?:\\d{1,2}月)?`, 'i');
+            siteName = siteName.replace(nonBracketStrip, '').trim();
+        }
+    }
+
     // 兜底站点名
     if (!siteName) {
         const brandMatch = nameWithoutExt.match(/^([\u4e00-\u9fa5]+)/);
         siteName = brandMatch ? brandMatch[1] : nameWithoutExt.split(/[\s(\-]/)[0];
     }
 
-    siteName = siteName.replace(/[-_\s(]+$/, '').trim();
+    // 清理尾部月份和无用标点
+    siteName = siteName.replace(/\d{1,2}月\s*$/, '').trim();
+    siteName = siteName.replace(/[-_\s(（]+$/, '').trim();
 
     // 智能追加国家后缀（如果文件名中有明确识别到国家，且站点名中还不包含任何国家地名时，例如 雅甄 (DE) -> 雅甄德国）
     if (countryInfo && countryInfo.name) {
@@ -824,7 +1031,6 @@ app.get('/api/process-progress/:jobId', async (req, res) => {
         job.status = 'processing';
         const processedData = [];
         const resultsLog = [];
-        let detectedMonth = '1';
 
         // 加载汇率配置
         let monthlyRates = {};
@@ -838,19 +1044,29 @@ app.get('/api/process-progress/:jobId', async (req, res) => {
             try {
                 const decodedBinary = Buffer.from(pdf.originalname, 'binary').toString('utf8');
                 const decodedLatin1 = Buffer.from(pdf.originalname, 'latin1').toString('utf8');
-                if (/[一-龥]/.test(decodedBinary)) originalName = decodedBinary;
-                else if (/[一-龥]/.test(decodedLatin1)) originalName = decodedLatin1;
+                if (/[原-龥]/.test(decodedBinary)) originalName = decodedBinary;
+                else if (/[原-龥]/.test(decodedLatin1)) originalName = decodedLatin1;
             } catch (e) { }
 
             sendProgress({ status: 'processing_file', file: originalName, index: i + 1, total: job.files.length, progress: Math.round((i / job.files.length) * 100) });
 
+            let detectedMonth = '1';
             try {
-                const rawText = await parsePdfLocally(pdf.path);
+                const { text: rawText, layoutRows, hasLabelLoss } = await parsePdfLocally(pdf.path);
                 const textResult = rawText.split('\n').map(line => line.trim()).filter(line => line.length > 0).join('\n');
 
-                let extracted = await extractDataWithDeepSeek(textResult);
-                const isExtractedEmpty = !extracted || (extracted.income === 0 && extracted.expenses === 0 && extracted.adsCost === 0 && extracted.taxCollected === 0 && extracted.taxRefunded === 0);
-                if (isExtractedEmpty) extracted = extractDataFromText(textResult);
+                let extracted;
+                if (hasLabelLoss) {
+                    console.log(`[Layout Engine] 检测到 PDF 字体编码异常 (Label Loss)，强力启用本地物理坐标还原解析...`);
+                    extracted = extractDataByLayout(layoutRows);
+                    const localExt = extractDataFromText(textResult);
+                    extracted.dateRange = localExt.dateRange;
+                    extracted.currency = 'JPY'; // 字体丢失通常发生在泰扬日本 PDF，兜底为 JPY
+                } else {
+                    extracted = await extractDataWithDeepSeek(textResult);
+                    const isExtractedEmpty = !extracted || (extracted.income === 0 && extracted.expenses === 0 && extracted.adsCost === 0 && extracted.taxCollected === 0 && extracted.taxRefunded === 0);
+                    if (isExtractedEmpty) extracted = extractDataFromText(textResult);
+                }
 
                 if (extracted && extracted.dateRange) detectedMonth = getMonthFromRange(extracted.dateRange);
                 
@@ -962,6 +1178,7 @@ app.get('/api/process-progress/:jobId', async (req, res) => {
                     legalName: finalLegalName,
                     country: finalCountryInfo ? finalCountryInfo.name : '',
                     settlement: settlementCode,
+                    month: detectedMonth, // 保存当前文件的专属解析月份
                     rate: conversionPrice || '',
                     income: extracted.income,
                     expenses: extracted.expenses,
@@ -981,24 +1198,17 @@ app.get('/api/process-progress/:jobId', async (req, res) => {
         }
 
         sendProgress({ status: 'generating_excel', progress: 95 });
-        const month = detectedMonth;
-        let year = '2026';
-        if (processedData[0] && processedData[0].dateRange) {
-            const yMatch = processedData[0].dateRange.match(/\d{4}/);
-            if (yMatch) year = yMatch[0];
-        }
-        const yearMonthStr = `${year}年${month}月`;
+        
+        // 收集所有唯一的解析月份，按数字升序并用逗号合并
+        const uniqueMonths = Array.from(new Set(processedData.map(d => Number(d.month))))
+            .sort((a, b) => a - b)
+            .join(', ');
+        const month = uniqueMonths || '1';
 
         const header = [
-            '领星店铺名称', '站点', '公司主体', '国家', '结算币种', `${yearMonthStr}汇率`,
-            `${month}月--销售额汇总（Income）`, `${month}月费用（Expenses）`, `${month}月税款`, `${month}月税款退款`, `${month}月广告费（Cost of Advertising）`,
-            `${month}月广告费退款（Refund for Advertiser）`,
-            `${month}月--销售额汇总 (人民币)`,
-            `${month}月费用 (人民币)`,
-            `${month}月税款 (人民币)`,
-            `${month}月税款退款 (人民币)`,
-            `${month}月广告费 (人民币)`,
-            `${month}月广告费退款( 人民币）`
+            '站点', '公司主体', '国家', '结算币种', '月份', '汇率',
+            '销售额汇总（Income）', '费用（Expenses）', '税款', '税款退款', '广告费（Cost of Advertising）', '广告费退款（Refund for Advertiser）',
+            '销售额汇总 (人民币)', '费用 (人民币)', '税款 (人民币)', '税款退款 (人民币)', '广告费 (人民币)', '广告费退款 (人民币)'
         ];
 
         const workbook = new ExcelJS.Workbook();
@@ -1014,7 +1224,7 @@ app.get('/api/process-progress/:jobId', async (req, res) => {
         processedData.forEach((d, idx) => {
             const rowNum = idx + 2;
             const row = sheet.addRow([
-                '', d.siteName, d.legalName, d.country, d.settlement, d.rate,
+                d.siteName, d.legalName, d.country, d.settlement, `${d.month}月`, d.rate,
                 d.income, d.expenses, d.tax, d.taxRefund, d.ads, d.adsRefund,
                 { formula: `G${rowNum}*F${rowNum}` },
                 { formula: `H${rowNum}*F${rowNum}` },
@@ -1024,7 +1234,7 @@ app.get('/api/process-progress/:jobId', async (req, res) => {
                 { formula: `L${rowNum}*F${rowNum}` }
             ]);
             row.eachCell((cell, colNumber) => {
-                cell.font = { name: colNumber >= 5 ? 'Tahoma' : '等线', size: 10 };
+                cell.font = { name: colNumber >= 6 ? 'Tahoma' : '等线', size: 10 };
                 cell.border = borderStyle;
                 cell.alignment = { vertical: 'middle', horizontal: colNumber >= 6 ? 'right' : 'center' };
                 if (colNumber >= 6) cell.numFmt = colNumber === 6 ? '0.0000' : numFormat;
@@ -1059,11 +1269,11 @@ app.get('/api/process-progress/:jobId', async (req, res) => {
         const previewRows = processedData.map(d => {
             const calcRmb = (val) => (!val || val === 0 || !d.conversionPrice) ? 0 : Math.round((val * d.conversionPrice) * 100) / 100;
             return [
-                '', // 领星店铺名称
                 d.siteName,
                 d.legalName,
                 d.country,
                 d.settlement,
+                `${d.month}月`,
                 d.rate !== null && d.rate !== undefined && d.rate !== '' ? Number(d.rate) : '',
                 d.income,
                 d.expenses,
@@ -1410,11 +1620,49 @@ app.get('/api/worker-mood', async (req, res) => {
 });
 
 // ─── 历史分析记录 API ──────────────────────────────────────────────────────────
-// 获取历史记录
+function migrateHistoryRecord(item) {
+    if (item.headers && item.headers[0] === '领星店铺名称') {
+        console.log(`[Migration] Migrating old format history record: ${item.id}`);
+        const newHeaders = [
+            '站点', '公司主体', '国家', '结算币种', '月份', '汇率',
+            '销售额汇总（Income）', '费用（Expenses）', '税款', '税款退款', '广告费（Cost of Advertising）', '广告费退款（Refund for Advertiser）',
+            '销售额汇总 (人民币)', '费用 (人民币)', '税款 (人民币)', '税款退款 (人民币)', '广告费 (人民币)', '广告费退款 (人民币)'
+        ];
+
+        const newPreviewRows = item.previewRows.map(row => [
+            row[1], // 站点
+            row[2], // 公司主体
+            row[3], // 国家
+            row[4], // 结算币种
+            `${item.month}月`, // 月份
+            row[5], // 汇率
+            row[6], row[7], row[8], row[9], row[10], row[11],
+            row[12], row[13], row[14], row[15], row[16], row[17]
+        ]);
+
+        item.headers = newHeaders;
+        item.previewRows = newPreviewRows;
+    }
+    return item;
+}
+
+// 获取历史记录 (集成动态格式迁移)
 app.get('/api/history', (req, res) => {
     try {
         if (fs.existsSync(HISTORY_FILE)) {
-            const data = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf-8'));
+            let data = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf-8'));
+            let migrated = false;
+            data = data.map(item => {
+                if (item.headers && item.headers[0] === '领星店铺名称') {
+                    migrated = true;
+                    return migrateHistoryRecord(item);
+                }
+                return item;
+            });
+            if (migrated) {
+                fs.writeFileSync(HISTORY_FILE, JSON.stringify(data, null, 2), 'utf-8');
+                console.log("[Migration] HISTORY_FILE legacy records auto-migrated and synchronized.");
+            }
             res.json({ success: true, data });
         } else {
             res.json({ success: true, data: [] });
@@ -1523,12 +1771,21 @@ app.post('/api/history/:id/re-analyze', upload.array('pdfs'), async (req, res) =
             console.log(`[Re-analyze] 匹配到历史文件，开始重解析: ${originalName} (索引: ${fileIndex})`);
 
             try {
-                const rawText = await parsePdfLocally(file.path);
+                const { text: rawText, layoutRows, hasLabelLoss } = await parsePdfLocally(file.path);
                 const textResult = rawText.split('\n').map(line => line.trim()).filter(line => line.length > 0).join('\n');
 
-                let extracted = await extractDataWithDeepSeek(textResult);
-                const isExtractedEmpty = !extracted || (extracted.income === 0 && extracted.expenses === 0 && extracted.adsCost === 0 && extracted.taxCollected === 0 && extracted.taxRefunded === 0);
-                if (isExtractedEmpty) extracted = extractDataFromText(textResult);
+                let extracted;
+                if (hasLabelLoss) {
+                    console.log(`[Layout Engine] 检测到 PDF 字体编码异常 (Label Loss)，强力启用本地物理坐标还原解析...`);
+                    extracted = extractDataByLayout(layoutRows);
+                    const localExt = extractDataFromText(textResult);
+                    extracted.dateRange = localExt.dateRange;
+                    extracted.currency = 'JPY'; // 字体丢失通常发生在泰扬日本 PDF，兜底为 JPY
+                } else {
+                    extracted = await extractDataWithDeepSeek(textResult);
+                    const isExtractedEmpty = !extracted || (extracted.income === 0 && extracted.expenses === 0 && extracted.adsCost === 0 && extracted.taxCollected === 0 && extracted.taxRefunded === 0);
+                    if (isExtractedEmpty) extracted = extractDataFromText(textResult);
+                }
 
                 let detectedMonth = record.month; 
                 let detectedYear = '2026';
@@ -1623,11 +1880,11 @@ app.post('/api/history/:id/re-analyze', upload.array('pdfs'), async (req, res) =
                 const calcRmb = (val) => (!val || val === 0 || !conversionPrice) ? 0 : Math.round((val * conversionPrice) * 100) / 100;
                 
                 const updatedRow = [
-                    '', // 领星店铺名称
                     finalSiteName,
                     finalLegalName,
                     finalCountryInfo ? finalCountryInfo.name : '',
                     settlementCode,
+                    `${detectedMonth}月`, // 月份列
                     conversionPrice !== null && conversionPrice !== undefined ? Number(conversionPrice) : '',
                     extracted.income,
                     extracted.expenses,
@@ -1654,10 +1911,18 @@ app.post('/api/history/:id/re-analyze', upload.array('pdfs'), async (req, res) =
             }
         }
 
+        // 重新计算并排序该历史记录中包含的所有唯一月份，实现多月份合并与实时更新
+        const uniqueMonths = Array.from(new Set(record.previewRows.map(row => parseInt(row[4]))))
+            .sort((a, b) => a - b)
+            .join(', ');
+        record.month = uniqueMonths || '1';
+
         // 重新生成该历史任务的物理 Excel 文件！
         const persistentPathMatch = record.downloadUrl.match(/path=([^&]+)/);
         if (persistentPathMatch) {
             const persistentPath = decodeURIComponent(persistentPathMatch[1]);
+            // 同时更新下载 URL 中的月份属性，保证下载时文件名月份的正确性
+            record.downloadUrl = `/api/download?path=${encodeURIComponent(persistentPath)}&month=${encodeURIComponent(record.month)}`;
             if (fs.existsSync(persistentPath)) {
                 // 覆盖重新写入 Excel
                 const workbook = new ExcelJS.Workbook();
@@ -1685,7 +1950,7 @@ app.post('/api/history/:id/re-analyze', upload.array('pdfs'), async (req, res) =
                     ]);
 
                     excelRow.eachCell((cell, colNumber) => {
-                        cell.font = { name: colNumber >= 5 ? 'Tahoma' : '等线', size: 10 };
+                        cell.font = { name: colNumber >= 6 ? 'Tahoma' : '等线', size: 10 };
                         cell.border = borderStyle;
                         cell.alignment = { vertical: 'middle', horizontal: colNumber >= 6 ? 'right' : 'center' };
                         if (colNumber >= 6) cell.numFmt = colNumber === 6 ? '0.0000' : numFormat;

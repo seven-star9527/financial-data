@@ -104,7 +104,8 @@
             <div class="config-section">
                 <div class="config-header" style="cursor: pointer; user-select: none;" id="config-section-header">
                     <h3 style="display: flex; align-items: center; gap: 8px;">
-                        <span id="config-toggle-arrow" style="transition: transform 0.2s ease; display: inline-block; transform: rotate(-90deg);">▼</span>
+                        <span id="config-toggle-arrow"
+                            style="transition: transform 0.2s ease; display: inline-block; transform: rotate(-90deg);">▼</span>
                         公司主体配置 (根据文件名关键字自动匹配)
                     </h3>
                     <button id="add-mapping-btn" class="secondary-btn small">+ 添加规则</button>
@@ -190,14 +191,16 @@
                 <!-- 数据预览区域 -->
                 <div class="preview-section"
                     style="margin-top: 1.5rem; margin-bottom: 2rem; background: #fff; border-radius: 12px; border: 1px solid var(--border-color); padding: 1.5rem; text-align: left; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 12px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 12px;">
                         <h3
                             style="font-size: 1.1rem; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 8px; margin: 0;">
                             <span>📊</span> 报表数据实时预览
                         </h3>
-                        <div id="re-analyze-container" class="hidden" style="display: flex; align-items: center; gap: 8px;">
+                        <div id="re-analyze-container" class="hidden"
+                            style="display: flex; align-items: center; gap: 8px;">
                             <input type="file" id="re-analyze-input" accept=".pdf" multiple hidden>
-                            <button id="re-analyze-btn" class="secondary-btn small" 
+                            <button id="re-analyze-btn" class="secondary-btn small"
                                 style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); color: #1d4ed8; border: 1px solid #bfdbfe; font-weight: 600; display: flex; align-items: center; gap: 6px; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.06); font-size: 0.85rem;">
                                 🔄 重新解析勾选文件
                             </button>
@@ -240,7 +243,7 @@
                     </div>
                     <span
                         style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-top: 0.4rem; font-style: italic;">默认为:
-                        亚马逊汇总表-${month}月</span>
+                        亚马逊汇总表</span>
                 </div>
 
                 <a id="download-btn" class="primary-btn download-btn">💾 确认导出并下载汇总表 (.xlsx)</a>

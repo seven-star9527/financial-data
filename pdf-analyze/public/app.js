@@ -798,11 +798,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     // 初始化自定义文件名并监听变化
                     const filenameInput = document.getElementById('export-filename-input');
                     if (filenameInput) {
-                        filenameInput.value = `亚马逊汇总表-${data.month}月`;
+                        filenameInput.value = `亚马逊汇总表`;
                         downloadBtn.href = `${data.downloadUrl}&filename=${encodeURIComponent(filenameInput.value)}`;
 
                         const newFilenameHandler = () => {
-                            downloadBtn.href = `${data.downloadUrl}&filename=${encodeURIComponent(filenameInput.value.trim() || `亚马逊汇总表-${data.month}月`)}`;
+                            downloadBtn.href = `${data.downloadUrl}&filename=${encodeURIComponent(filenameInput.value.trim() || `亚马逊汇总表`)}`;
                         };
                         filenameInput.removeEventListener('input', filenameInput._handler);
                         filenameInput.addEventListener('input', newFilenameHandler);
@@ -1029,7 +1029,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const checkedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
             const checkedFilenames = Array.from(checkedCheckboxes).map(cb => cb.dataset.filename);
-            
+
             const selectedFiles = Array.from(this.files);
             // 筛选出属于已勾选行文件名的 PDF 文件
             const matchedFiles = selectedFiles.filter(file => checkedFilenames.includes(file.name));
@@ -1077,7 +1077,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const result = await response.json();
                 if (result.success) {
                     // 更新缓存中的行数据
@@ -1086,7 +1086,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // 弹出精美提示，汇总成果
                     const successCount = result.log.filter(l => l.status === 'success').length;
                     const failLogs = result.log.filter(l => l.status === 'error');
-                    
+
                     let msg = `🎉 重新分析完成！\n成功更新：${successCount} 个文件`;
                     if (failLogs.length > 0) {
                         msg += `\n失败：${failLogs.length} 个文件\n失败原因：\n` + failLogs.map(l => `- ${l.file}: ${l.error}`).join('\n');
