@@ -830,9 +830,37 @@ function parseFileNameInfo(originalName) {
         }
     }
 
-    // Step 1.5: 如果括号中没有找到，则扫描文件名中任何以非英文字母为边界的独立二位国家代码（如 "-DE3月" 中的 "DE"，"FR3月" 中的 "FR"）
+    // Step 1.2: 优先扫描文件名中是否包含明确的中文国家名称或特定中文简称（这是极高置信度的信号，如 "英国", "德国", "澳洲", "日本"）
     if (!countryInfo) {
-        const boundaryRegex = /(?:[^a-zA-Z]|^)([A-Z]{2})(?:[^a-zA-Z]|$)/gi;
+        const cnCountries = [
+            { name: '美国', key: '美国' }, { name: '加拿大', key: '加拿大' }, { name: '墨西哥', key: '墨西哥' },
+            { name: '英国', key: '英国' }, { name: '德国', key: '德国' }, { name: '法国', key: '法国' },
+            { name: '意大利', key: '意大利' }, { name: '西班牙', key: '西班牙' }, { name: '荷兰', key: '荷兰' },
+            { name: '比利时', key: '比利时' }, { name: '奥地利', key: '奥地利' }, { name: '希腊', key: '希腊' },
+            { name: '爱尔兰', key: '爱尔兰' }, { name: '澳大利亚', key: '澳大利亚' }, { name: '澳大利亚', key: '澳洲' },
+            { name: '日本', key: '日本' }, { name: '瑞典', key: '瑞典' }, { name: '波兰', key: '波兰' },
+            { name: '土耳其', key: '土耳其' }, { name: '沙特', key: '沙特' }, { name: '阿联酋', key: '阿联酋' },
+            { name: '印度', key: '印度' }, { name: '新加坡', key: '新加坡' }, { name: '香港', key: '香港' },
+            { name: '巴西', key: '巴西' }, { name: '泰国', key: '泰国' }, { name: '丹麦', key: '丹麦' },
+            { name: '菲律宾', key: '菲律宾' }, { name: '新西兰', key: '新西兰' }, { name: '瑞士', key: '瑞士' },
+            { name: '马来西亚', key: '马来西亚' }, { name: '俄罗斯', key: '俄罗斯' }, { name: '匈牙利', key: '匈牙利' },
+            { name: '以色列', key: '以色列' }, { name: '越南', key: '越南' }, { name: '台湾', key: '台湾' },
+            { name: '捷克', key: '捷克' }
+        ];
+        for (const item of cnCountries) {
+            if (nameWithoutExt.includes(item.key)) {
+                countryInfo = countryCurrencyMap[item.name];
+                countryName = item.name;
+                console.log(`[Decision Tree] 检测到高置信度中文国家名称 "${item.key}"，直接锁定国家为 "${item.name}"`);
+                break;
+            }
+        }
+    }
+
+    // Step 1.5: 如果括号与中文名称中都没有找到，则扫描文件名中任何以非英文字母为边界的独立二位国家代码（如 "-DE3月" 中的 "DE"，"FR3月" 中的 "FR"）
+    if (!countryInfo) {
+        // 使用现代 lookarounds 避免因单个边界字符重合导致的消费性匹配遗漏问题
+        const boundaryRegex = /(?<![a-zA-Z])([A-Z]{2})(?![a-zA-Z])/gi;
         const boundaryMatches = nameWithoutExt.matchAll(boundaryRegex);
         for (const m of boundaryMatches) {
             const isoCode = m[1].toUpperCase();
