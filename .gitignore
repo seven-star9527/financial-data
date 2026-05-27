@@ -1,0 +1,58 @@
+# ==========================================
+# 泽坤财务工具中台 Git 屏蔽规则
+# ==========================================
+
+# 1. 依赖库目录 (Dependencies)
+node_modules/
+jspm_packages/
+web_modules/
+
+# 2. 环境变量与机密密钥文件 (Local environment configs & keys)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.key
+*.pem
+*.cert
+
+# 3. 本地数据库与备份缓存 (Local Database & Export Caches)
+*.db
+*.db-journal
+*.sqlite
+boc_fx_rates.db
+boc_fx_rates_export.json
+exchange_rates.json
+pdf-analyze/exchange_rates.json
+pdf-analyze/analysis_history.json
+pdf-analyze/boc_fx_rates_monthly.json
+pdf-analyze/daily_mood.json
+
+# 4. 上传及下载文件缓存 (Uploads & Downloads cache)
+uploads/
+pdf-analyze/uploads/
+pdf-analyze/data/history/
+pdf-analyze/scratch/
+archive/
+
+# 5. 编译产物及 Python 缓存 (Python Pycache & Logs)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints
+pip-log.txt
+pip-delete-this-directory.txt
+
+# 6. IDE / 编辑器专属配置 (IDE / Editor local settings)
+.vscode/
+.idea/
+.claude/
+.gemini/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
