@@ -123,8 +123,15 @@ const countryCodeMap = {
  */
 function parseFileNameInfo(originalName) {
     let nameWithoutExt = originalName.replace(/\.pdf$/i, '').trim();
-    // 智能滤除文件开头的月份/日期前缀，如 "1月 "、"01月 "、"2026年1月 " 等以及多余空格
-    nameWithoutExt = nameWithoutExt.replace(/^(?:\d{4}年)?\d{1,2}月\s*/g, '').trim();
+    
+    // 1. 智能滤除文件开头的月份/日期前缀，如 "1月 "、"01月 "、"2026年1月 " 等
+    nameWithoutExt = nameWithoutExt.replace(/^(?:\d{4}年)?\d{1,2}月/g, '').trim();
+
+    // 2. 智能滤除文件开头的各种英文月度汇总报告的前缀，如 "2026MarMonthlySummary-"、"2026MarMonthlyUnifiedSummary-" 等
+    nameWithoutExt = nameWithoutExt.replace(/^(?:20\d{2}|\d{4})?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-zA-Z0-9\-_]*(?:MonthlySummary|MonthlyUnifiedSummary|CustomSummary|CustomUnifiedSummary)?/i, '').trim();
+
+    // 3. 滤除文件开头遗留的无用连字符、下划线和空格（例如由上述规则剥离后留下的 "-启坤德国"）
+    nameWithoutExt = nameWithoutExt.replace(/^[-_\s]+/g, '').trim();
 
     // Step 1: 扫描文件名中所有形如 (DE) 或 （DE） 的括号，寻找有效的二位国家代码（支持中文括号与任意位置，支持后跟编号如 (1)）
     let countryInfo = null;
@@ -648,6 +655,16 @@ app.post('/api/history/:id/re-analyze', upload.array('pdfs'), async (req, res) =
                     detectedMonth = getMonthFromRange(extracted.dateRange);
                     const yearMatch = extracted.dateRange.match(/\d{4}/);
                     if (yearMatch) detectedYear = yearMatch[0];
+                }
+
+                // 智能纠偏：若重解析得到的月份是默认的 '1'，或者根本没有提取到日期范围，
+                // 则看文件名是否包含明确的月份信息 (如 2月, Feb, Mar)，有则以文件名月份强力纠偏！
+                const fileMonth = getMonthFromFileName(originalName);
+                if (fileMonth) {
+                    if (detectedMonth === '1' || !extracted || !extracted.dateRange) {
+                        console.log(`[Month Corrector] [Re-analyze] 正文解析月份为 "${detectedMonth}"，但文件名 "${originalName}" 明确包含月份 "${fileMonth}月"，已强力纠偏为: ${fileMonth}`);
+                        detectedMonth = fileMonth;
+                    }
                 }
 
                 // 文件名提取站点国别
@@ -1301,16 +1318,129 @@ Your task is to translate this Amazon Settlement report into English.
     }
 }
 
-// 辅助函数：获取月份
+// 辅助函数：从文件名中提取月份
+function getMonthFromFileName(fileName) {
+    if (!fileName) return null;
+    
+    // 1. 尝试匹配 "1月", "2月" ... "12月"
+    const cnMatch = fileName.match(/(\d{1,2})\s*月/);
+    if (cnMatch) {
+        const m = parseInt(cnMatch[1], 10);
+        if (m >= 1 && m <= 12) {
+            return String(m);
+        }
+    }
+    
+    // 2. 尝试匹配英文月份名
+    const monthMap = {
+        'jan': '1', 'january': '1',
+        'feb': '2', 'february': '2',
+        'mar': '3', 'march': '3',
+        'apr': '4', 'april': '4',
+        'may': '5',
+        'jun': '6', 'june': '6',
+        'jul': '7', 'july': '7',
+        'aug': '8', 'august': '8',
+        'sep': '9', 'september': '9',
+        'oct': '10', 'october': '10',
+        'nov': '11', 'november': '11',
+        'dec': '12', 'december': '12'
+    };
+    
+    // 寻找英文月份单词
+    const enMatch = fileName.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b/i);
+    if (enMatch) {
+        const key = enMatch[1].toLowerCase();
+        if (monthMap[key]) {
+            return monthMap[key];
+        }
+    }
+    
+    // 3. 另外支持非单词边界但在年份后的匹配（有些文件名中英文字符与年份连在一起，例如 2026FebMonthlySummary.pdf）
+    // 通过要求月份前必须有 4 位或 2 位年份数字来避免匹配到类似 "Marketplace" 中的 "mar"
+    const enMatchLoose = fileName.match(/(?:\d{4}|\d{2})(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)/i);
+    if (enMatchLoose) {
+        const key = enMatchLoose[1].toLowerCase();
+        if (monthMap[key]) {
+            return monthMap[key];
+        }
+    }
+    
+    return null;
+}
+
+// 辅助函数：获取月份 (支持多国语言日期格式及数字型日期格式)
 function getMonthFromRange(dateRange) {
     if (!dateRange) return '1';
-    const match = dateRange.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i);
-    const m = match ? match[1] : 'Jan';
-    const monthMap = {
-        'Jan': '1', 'Feb': '2', 'Mar': '3', 'Apr': '4', 'May': '5', 'Jun': '6',
-        'Jul': '7', 'Aug': '8', 'Sep': '9', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+    
+    // 1. 尝试匹配中文字符 1月 到 12月
+    const cnMatch = dateRange.match(/(\d{1,2})\s*月/);
+    if (cnMatch) {
+        const m = parseInt(cnMatch[1], 10);
+        if (m >= 1 && m <= 12) return String(m);
+    }
+
+    // 2. 尝试匹配 YYYY/MM/DD 或 YYYY-MM-DD
+    const ymdMatch = dateRange.match(/\b\d{4}[/\-](\d{1,2})[/\-]\d{1,2}\b/);
+    if (ymdMatch) {
+        const m = parseInt(ymdMatch[1], 10);
+        if (m >= 1 && m <= 12) return String(m);
+    }
+
+    // 3. 尝试匹配 DD.MM.YYYY (德国等)
+    const dmyDotMatch = dateRange.match(/\b\d{1,2}\.(\d{1,2})\.\d{4}\b/);
+    if (dmyDotMatch) {
+        const m = parseInt(dmyDotMatch[1], 10);
+        if (m >= 1 && m <= 12) return String(m);
+    }
+
+    // 4. 尝试匹配 DD/MM/YYYY (其他数字型)
+    const dmySlashMatch = dateRange.match(/\b\d{1,2}\/(\d{1,2})\/\d{4}\b/);
+    if (dmySlashMatch) {
+        const m = parseInt(dmySlashMatch[1], 10);
+        if (m >= 1 && m <= 12) return String(m);
+    }
+
+    // 5. 语言月份缩写/全称映射
+    const multiLangMonthMap = {
+        // English
+        'jan': '1', 'feb': '2', 'mar': '3', 'apr': '4', 'may': '5', 'jun': '6',
+        'jul': '7', 'aug': '8', 'sep': '9', 'oct': '10', 'nov': '11', 'dec': '12',
+        'january': '1', 'february': '2', 'march': '3', 'april': '4', 'june': '6',
+        'july': '7', 'august': '8', 'september': '9', 'october': '10', 'november': '11', 'december': '12',
+        
+        // German
+        'januar': '1', 'februar': '2', 'märz': '3', 'maerz': '3', 'juni': '6', 'juli': '7', 'oktober': '10', 'dezember': '12',
+        
+        // French
+        'janv': '1', 'févr': '2', 'fevr': '2', 'mars': '3', 'avr': '4', 'juin': '6', 'juil': '7', 'août': '8', 'aout': '8', 'sept': '9', 'déc': '12', 'dec': '12',
+        
+        // Spanish & Italian
+        'ene': '1', 'gen': '1', 'abr': '4', 'mag': '5', 'ago': '8', 'set': '9', 'ott': '10', 'dic': '12',
+        
+        // Swedish
+        'maj': '5', 'okt': '10',
+        
+        // Turkish
+        'oca': '1', 'şub': '2', 'sub': '2', 'nis': '4', 'haz': '6', 'tem': '7', 'ağu': '8', 'agu': '8', 'eyl': '9', 'eki': '10', 'kas': '11', 'ara': '12'
     };
-    return monthMap[m] || '1';
+
+    // 提取所有可能的字母型单词
+    const words = dateRange.match(/[a-zA-Zàâäéèêëîïôöùûüÿçşğııİııııııııııııııı]+/gi);
+    if (words) {
+        for (let word of words) {
+            const w = word.toLowerCase();
+            if (multiLangMonthMap[w]) {
+                return multiLangMonthMap[w];
+            }
+            const w3 = w.substring(0, 3);
+            if (multiLangMonthMap[w3]) {
+                return multiLangMonthMap[w3];
+            }
+        }
+    }
+
+    return '1';
 }
 
 // 辅助函数：从文本中正则提取数据 (增强版：基于行搜索)
@@ -1479,6 +1609,16 @@ app.get('/api/process-progress/:jobId', async (req, res) => {
                     // 从日期范围中提取年份
                     const yrMatch = extracted.dateRange.match(/\b(20\d{2})\b/);
                     if (yrMatch) detectedYear = yrMatch[1];
+                }
+
+                // 智能纠偏：若正文解析得到的月份是默认的 '1'，或者根本没有提取到日期范围，
+                // 则看文件名是否包含明确的月份信息 (如 2月, Feb, Mar)，有则以文件名月份强力纠偏！
+                const fileMonth = getMonthFromFileName(originalName);
+                if (fileMonth) {
+                    if (detectedMonth === '1' || !extracted || !extracted.dateRange) {
+                        console.log(`[Month Corrector] 正文解析月份为 "${detectedMonth}"，但文件名 "${originalName}" 明确包含月份 "${fileMonth}月"，已强力纠偏为: ${fileMonth}`);
+                        detectedMonth = fileMonth;
+                    }
                 }
 
                 // 从文件名智能解析站点、国家、结算币种（降级备用）
